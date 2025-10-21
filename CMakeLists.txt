@@ -4,14 +4,12 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_library(sclang_websocket SHARED
     src/websocket.cpp
-        src/gluon_websocket.cpp
+    src/gluon_websocket.cpp
 )
 
 # supercollider
 target_include_directories(sclang_websocket PUBLIC
     ${SC_SRC_PATH}/include/lang
-    ${SC_SRC_PATH}/include/common
-    ${SC_SRC_PATH}/common
 )
 
 # boost

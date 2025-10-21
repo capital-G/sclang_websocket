@@ -17,7 +17,8 @@ namespace SC_Websocket {
 
 // a websocket message can either be a byte array or a string
 // see https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
-typedef std::variant<std::vector<uint8_t>, std::string> WebSocketData;
+using WebSocketData = std::variant<std::vector<uint8_t>, std::string>;
+
 
 /** A wrapper class for the websocket communication thread.
 This gets initiated into a static variable upon request.
@@ -45,26 +46,26 @@ public:
     WebSocketThread();
 
 private:
-    boost::asio::io_context m_ioContext;
-    std::shared_ptr<std::thread> m_thread;
+    boost::asio::io_context mIoContext;
+    std::shared_ptr<std::thread> mThread;
 };
 
 // A WebSocketSession is essentially a websocket connection from our WebSocket server.
 // This gets build by the WebSocketListener.
 class WebSocketSession : public std::enable_shared_from_this<WebSocketSession> {
-    beast::websocket::stream<tcp::socket> m_ws;
-    beast::flat_buffer m_buffer;
-    std::queue<WebSocketData> m_outQueue;
+    beast::websocket::stream<tcp::socket> mWs;
+    beast::flat_buffer mBuffer;
+    std::queue<WebSocketData> mOutQueue;
     // a primitive mutex - see `do_write` and `on_write`
-    bool m_isWriting = false;
-    int m_listeningPort;
+    bool mIsWriting = false;
+    int mListeningPort;
 
 public:
     // we store a reference pointer to ourselves upon creation
     // this pointer acts as an identifier on the sclang side,
     // so it is possible to distinguish connections and we can
     // call the callback on the matching sclang WebSocketConnection
-    WebSocketSession* m_ownAddress;
+    // WebSocketSession* m_ownAddress;
 
     // take ownership of socket
     explicit WebSocketSession(boost::asio::ip::tcp::socket&& socket, int listeningPort);
@@ -94,9 +95,9 @@ private:
 
 // acts as a server which listens for incoming connections
 class WebSocketListener : public std::enable_shared_from_this<WebSocketListener> {
-    boost::asio::io_context& m_ioContext;
-    boost::asio::ip::tcp::acceptor m_acceptor;
-    std::shared_ptr<WebSocketThread> m_thread;
+    boost::asio::io_context& mIoContext;
+    boost::asio::ip::tcp::acceptor mAcceptor;
+    std::shared_ptr<WebSocketThread> mThread;
 
 public:
     // take ownership shared ptr of our web socket thread so we maintain the lifetime of the thread
@@ -114,17 +115,17 @@ private:
 };
 
 class WebSocketClient : public std::enable_shared_from_this<WebSocketClient> {
-    beast::websocket::stream<beast::tcp_stream> m_ws;
-    boost::asio::ip::tcp::resolver m_resolver;
-    beast::flat_buffer m_buffer;
-    std::string m_host;
-    bool m_connected = false;
-    bool m_isWriting = false;
-    std::queue<WebSocketData> m_outQueue;
+    beast::websocket::stream<beast::tcp_stream> mWs;
+    boost::asio::ip::tcp::resolver mResolver;
+    beast::flat_buffer mBuffer;
+    std::string mHost;
+    bool mConnected = false;
+    bool mIsWriting = false;
+    std::queue<WebSocketData> mOutQueue;
 
 public:
     // access to self - acts as identifier for sclang callbacks
-    WebSocketClient* m_self;
+    WebSocketClient* mSelf;
 
     WebSocketClient(boost::asio::io_context& ioContext);
 
@@ -133,7 +134,7 @@ public:
 
     beast::error_code closeConnection();
 
-    void enqueueMessage(WebSocketData message);
+    void enqueueMessage(WebSocketData& message);
 
 private:
     void onResolve(beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results);
@@ -146,7 +147,7 @@ private:
 
     void onRead(beast::error_code ec, std::size_t bytesTransferred);
 
-    void onClose() { m_connected = false; }
+    void onClose() { mConnected = false; }
 
     void doWrite();
 
