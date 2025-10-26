@@ -16,25 +16,9 @@ namespace boost {
 namespace json {
 namespace detail {
 
-stack::non_trivial<>*
-stack::non_trivial<>::destroy() noexcept
-{
-    non_trivial* const result = next;
-    rel(this, nullptr);
-    return result;
-}
-
-stack::non_trivial<>*
-stack::non_trivial<>::relocate(void* dst) noexcept
-{
-    return rel(this, dst);
-}
-
-
 stack::
 ~stack()
 {
-    clear();
     if(base_ != buf_)
         sp_->deallocate(
             base_, cap_);
@@ -54,39 +38,16 @@ stack(
 
 void
 stack::
-clear() noexcept
+reserve(std::size_t n)
 {
-    while(head_)
-        head_ = head_->destroy();
-    size_ = 0;
-}
-
-void
-stack::
-reserve_impl(std::size_t n)
-{
-    // caller checks this
-    BOOST_ASSERT(n > cap_);
-
-    auto const base = static_cast<unsigned char*>( sp_->allocate(n) );
+    if(cap_ >= n)
+        return;
+    auto const base = static_cast<
+        unsigned char*>(sp_->allocate(n));
     if(base_)
     {
-        // copy trivials
-        std::memcpy(base, base_, size_);
-
-        // copy non-trivials
-        non_trivial<>* src = head_;
-        non_trivial<>** prev = &head_;
-        while(src)
-        {
-            std::size_t const buf_offset =
-                reinterpret_cast<unsigned char*>(src) - base_;
-            non_trivial<>* dest = src->relocate(base + buf_offset);
-            *prev = dest;
-            prev = &dest->next;
-            src = dest->next;
-        }
-
+        if(size_ > 0)
+            std::memcpy(base, base_, size_);
         if(base_ != buf_)
             sp_->deallocate(base_, cap_);
     }

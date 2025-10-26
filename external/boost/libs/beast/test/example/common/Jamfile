@@ -7,10 +7,6 @@
 # Official repository: https://github.com/boostorg/beast
 #
 
-project
-    : requirements
-        <include>../../.. ;
-
 local SOURCES =
     root_certificates.cpp
     server_certificate.cpp
@@ -19,7 +15,7 @@ local SOURCES =
 local RUN_TESTS ;
 
 local libs =
-    /boost/beast/test//lib-asio-ssl
+    /boost/beast//lib-asio-ssl
     /boost/beast/test//lib-test
     ;
 

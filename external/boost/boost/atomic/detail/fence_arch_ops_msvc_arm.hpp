@@ -3,7 +3,7 @@
  * (See accompanying file LICENSE_1_0.txt or copy at
  * http://www.boost.org/LICENSE_1_0.txt)
  *
- * Copyright (c) 2020-2025 Andrey Semashev
+ * Copyright (c) 2020 Andrey Semashev
  */
 /*!
  * \file   atomic/detail/fence_arch_ops_msvc_arm.hpp
@@ -35,7 +35,7 @@ namespace detail {
 //! Fence operations for ARM
 struct fence_arch_operations_msvc_arm
 {
-    static BOOST_FORCEINLINE void thread_fence(memory_order order) noexcept
+    static BOOST_FORCEINLINE void thread_fence(memory_order order) BOOST_NOEXCEPT
     {
         BOOST_ATOMIC_DETAIL_COMPILER_BARRIER();
         if (order != memory_order_relaxed)
@@ -43,19 +43,19 @@ struct fence_arch_operations_msvc_arm
         BOOST_ATOMIC_DETAIL_COMPILER_BARRIER();
     }
 
-    static BOOST_FORCEINLINE void signal_fence(memory_order order) noexcept
+    static BOOST_FORCEINLINE void signal_fence(memory_order order) BOOST_NOEXCEPT
     {
         if (order != memory_order_relaxed)
             BOOST_ATOMIC_DETAIL_COMPILER_BARRIER();
     }
 
-    static BOOST_FORCEINLINE void hardware_full_fence() noexcept
+    static BOOST_FORCEINLINE void hardware_full_fence() BOOST_NOEXCEPT
     {
         __dmb(0xB); // _ARM_BARRIER_ISH, see armintr.h from MSVC 11 and later
     }
 };
 
-using fence_arch_operations = fence_arch_operations_msvc_arm;
+typedef fence_arch_operations_msvc_arm fence_arch_operations;
 
 } // namespace detail
 } // namespace atomics

@@ -252,27 +252,21 @@ void init_fill_random_impl(unsigned int major_ver, unsigned int minor_ver, unsig
 void init_directory_iterator_impl() noexcept;
 #endif // defined(BOOST_WINDOWS_API)
 
-namespace {
-
 //--------------------------------------------------------------------------------------//
 //                                                                                      //
 //                        helpers (all operating systems)                               //
 //                                                                                      //
 //--------------------------------------------------------------------------------------//
 
+namespace {
+
 // The number of retries remove_all should make if it detects that the directory it is about to enter has been replaced with a symlink or a regular file
 BOOST_CONSTEXPR_OR_CONST unsigned int remove_all_directory_replaced_retry_count = 5u;
 
-// Size of a small buffer for a path that can be placed on stack, in character code units
-BOOST_CONSTEXPR_OR_CONST std::size_t small_path_size = 1024u;
-
 #if defined(BOOST_POSIX_API)
 
-//--------------------------------------------------------------------------------------//
-//                                                                                      //
-//                            POSIX-specific helpers                                    //
-//                                                                                      //
-//--------------------------------------------------------------------------------------//
+// Size of a small buffer for a path that can be placed on stack, in character code units
+BOOST_CONSTEXPR_OR_CONST std::size_t small_path_size = 1024u;
 
 // Absolute maximum path length, in character code units, that we're willing to accept from various system calls.
 // This value is arbitrary, it is supposed to be a hard limit to avoid memory exhaustion
@@ -284,6 +278,8 @@ BOOST_CONSTEXPR_OR_CONST std::size_t small_path_size = 1024u;
 // - GNU/Hurd: no hard limit
 BOOST_CONSTEXPR_OR_CONST std::size_t absolute_path_max = 32u * 1024u;
 
+#endif // defined(BOOST_POSIX_API)
+
 // Maximum number of resolved symlinks before we register a loop
 BOOST_CONSTEXPR_OR_CONST unsigned int symloop_max =
 #if defined(SYMLOOP_MAX)
@@ -292,6 +288,16 @@ BOOST_CONSTEXPR_OR_CONST unsigned int symloop_max =
     40
 #endif
 ;
+
+//  general helpers  -----------------------------------------------------------------//
+
+#ifdef BOOST_POSIX_API
+
+//--------------------------------------------------------------------------------------//
+//                                                                                      //
+//                            POSIX-specific helpers                                    //
+//                                                                                      //
+//--------------------------------------------------------------------------------------//
 
 inline bool not_found_error(int errval) noexcept
 {
@@ -799,7 +805,7 @@ int copy_file_data_read_write(int infile, int outfile, uintmax_t size, std::size
 
 typedef int copy_file_data_t(int infile, int outfile, uintmax_t size, std::size_t blksize);
 
-//! Pointer to the actual implementation of copy_file_data
+//! Pointer to the actual implementation of the copy_file_data implementation
 copy_file_data_t* copy_file_data = &copy_file_data_read_write;
 
 #if defined(BOOST_FILESYSTEM_USE_SENDFILE) || defined(BOOST_FILESYSTEM_USE_COPY_FILE_RANGE)
@@ -1395,12 +1401,12 @@ BOOST_FILESYSTEM_INIT_FUNC init_winapi_func_ptrs()
     boost::winapi::HMODULE_ h = boost::winapi::GetModuleHandleW(L"kernel32.dll");
     if (BOOST_LIKELY(!!h))
     {
-        GetFileInformationByHandleEx_t* get_file_information_by_handle_ex = boost::winapi::get_proc_address<GetFileInformationByHandleEx_t*>(h, "GetFileInformationByHandleEx");
+        GetFileInformationByHandleEx_t* get_file_information_by_handle_ex = (GetFileInformationByHandleEx_t*)boost::winapi::get_proc_address(h, "GetFileInformationByHandleEx");
         filesystem::detail::atomic_store_relaxed(get_file_information_by_handle_ex_api, get_file_information_by_handle_ex);
-        SetFileInformationByHandle_t* set_file_information_by_handle = boost::winapi::get_proc_address<SetFileInformationByHandle_t*>(h, "SetFileInformationByHandle");
+        SetFileInformationByHandle_t* set_file_information_by_handle = (SetFileInformationByHandle_t*)boost::winapi::get_proc_address(h, "SetFileInformationByHandle");
         filesystem::detail::atomic_store_relaxed(set_file_information_by_handle_api, set_file_information_by_handle);
-        filesystem::detail::atomic_store_relaxed(create_hard_link_api, boost::winapi::get_proc_address<CreateHardLinkW_t*>(h, "CreateHardLinkW"));
-        filesystem::detail::atomic_store_relaxed(create_symbolic_link_api, boost::winapi::get_proc_address<CreateSymbolicLinkW_t*>(h, "CreateSymbolicLinkW"));
+        filesystem::detail::atomic_store_relaxed(create_hard_link_api, (CreateHardLinkW_t*)boost::winapi::get_proc_address(h, "CreateHardLinkW"));
+        filesystem::detail::atomic_store_relaxed(create_symbolic_link_api, (CreateSymbolicLinkW_t*)boost::winapi::get_proc_address(h, "CreateSymbolicLinkW"));
 
         if (get_file_information_by_handle_ex && set_file_information_by_handle)
         {
@@ -1413,8 +1419,8 @@ BOOST_FILESYSTEM_INIT_FUNC init_winapi_func_ptrs()
     h = boost::winapi::GetModuleHandleW(L"ntdll.dll");
     if (BOOST_LIKELY(!!h))
     {
-        filesystem::detail::atomic_store_relaxed(nt_create_file_api, boost::winapi::get_proc_address<NtCreateFile_t*>(h, "NtCreateFile"));
-        filesystem::detail::atomic_store_relaxed(nt_query_directory_file_api, boost::winapi::get_proc_address<NtQueryDirectoryFile_t*>(h, "NtQueryDirectoryFile"));
+        filesystem::detail::atomic_store_relaxed(nt_create_file_api, (NtCreateFile_t*)boost::winapi::get_proc_address(h, "NtCreateFile"));
+        filesystem::detail::atomic_store_relaxed(nt_query_directory_file_api, (NtQueryDirectoryFile_t*)boost::winapi::get_proc_address(h, "NtQueryDirectoryFile"));
     }
 
     init_directory_iterator_impl();
@@ -1553,7 +1559,7 @@ boost::winapi::NTSTATUS_ nt_create_file_handle_at
 {
     NtCreateFile_t* nt_create_file = filesystem::detail::atomic_load_relaxed(nt_create_file_api);
     if (BOOST_UNLIKELY(!nt_create_file))
-        return static_cast< boost::winapi::NTSTATUS_ >(STATUS_NOT_IMPLEMENTED);
+        return STATUS_NOT_IMPLEMENTED;
 
     unicode_string obj_name = {};
     obj_name.Buffer = const_cast< wchar_t* >(p.c_str());
@@ -1585,7 +1591,7 @@ boost::winapi::NTSTATUS_ nt_create_file_handle_at
         0u // EaLength
     );
 
-    if (BOOST_UNLIKELY(BOOST_NTSTATUS_EQ(status, STATUS_INVALID_PARAMETER) && (obj_attrs.Attributes & OBJ_DONT_REPARSE) != 0u))
+    if (BOOST_UNLIKELY(status == STATUS_INVALID_PARAMETER && (obj_attrs.Attributes & OBJ_DONT_REPARSE) != 0u))
     {
         // OBJ_DONT_REPARSE is supported since Windows 10, retry without it
         filesystem::detail::atomic_store_relaxed(g_no_obj_dont_reparse, true);
@@ -2377,7 +2383,7 @@ inline path convert_nt_path_to_win32_path(const wchar_t* nt_path, std::size_t si
         (
             // Check if the following is a drive letter
             (
-                nt_path[pos + 1u] == colon && detail::is_letter(nt_path[pos]) &&
+                detail::is_letter(nt_path[pos]) && nt_path[pos + 1u] == colon &&
                 ((size - pos) == 2u || detail::is_directory_separator(nt_path[pos + 2u]))
             ) ||
             // Check for an "incorrect" syntax for UNC path junction points
@@ -2559,11 +2565,15 @@ path absolute_v4(path const& p, path const& base, system::error_code* ec)
     return res;
 }
 
-namespace {
-
-inline path canonical_common(path& source, system::error_code* ec)
+BOOST_FILESYSTEM_DECL
+path canonical_v3(path const& p, path const& base, system::error_code* ec)
 {
-#if defined(BOOST_POSIX_API)
+    path source(detail::absolute_v3(p, base, ec));
+    if (ec && *ec)
+    {
+    return_empty_path:
+        return path();
+    }
 
     system::error_code local_ec;
     file_status st(detail::status_impl(source, &local_ec));
@@ -2580,9 +2590,7 @@ inline path canonical_common(path& source, system::error_code* ec)
             BOOST_FILESYSTEM_THROW(filesystem_error("boost::filesystem::canonical", source, local_ec));
 
         *ec = local_ec;
-
-    return_empty_path:
-        return path();
+        goto return_empty_path;
     }
 
     path root(source.root_path());
@@ -2594,8 +2602,6 @@ inline path canonical_common(path& source, system::error_code* ec)
     {
         for (path::iterator itr(source.begin()), end(source.end()); itr != end; path_algorithms::increment_v4(itr))
         {
-            if (itr->empty())
-                continue;
             if (path_algorithms::compare_v4(*itr, dot_p) == 0)
                 continue;
             if (path_algorithms::compare_v4(*itr, dot_dot_p) == 0)
@@ -2617,6 +2623,12 @@ inline path canonical_common(path& source, system::error_code* ec)
             }
 
             path_algorithms::append_v4(result, *itr);
+
+            // If we don't have an absolute path yet then don't check symlink status.
+            // This avoids checking "C:" which is "the current directory on drive C"
+            // and hence not what we want to check/resolve here.
+            if (!result.is_absolute())
+                continue;
 
             st = detail::symlink_status_impl(result, ec);
             if (ec && *ec)
@@ -2644,7 +2656,7 @@ inline path canonical_common(path& source, system::error_code* ec)
                         if (path_algorithms::compare_v4(*itr, dot_p) != 0)
                             path_algorithms::append_v4(link, *itr);
                     }
-                    source = std::move(link);
+                    source = link;
                     root = source.root_path();
                 }
                 else // link is relative
@@ -2660,7 +2672,7 @@ inline path canonical_common(path& source, system::error_code* ec)
                         if (path_algorithms::compare_v4(*itr, dot_p) != 0)
                             path_algorithms::append_v4(new_source, *itr);
                     }
-                    source = std::move(new_source);
+                    source = new_source;
                 }
 
                 // symlink causes scan to be restarted
@@ -2676,122 +2688,6 @@ inline path canonical_common(path& source, system::error_code* ec)
 
     BOOST_ASSERT_MSG(result.is_absolute(), "canonical() implementation error; please report");
     return result;
-
-#else // defined(BOOST_POSIX_API)
-
-    unique_handle h(create_file_handle(
-        source.c_str(),
-        FILE_READ_ATTRIBUTES | FILE_READ_EA,
-        FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-        nullptr, // lpSecurityAttributes
-        OPEN_EXISTING,
-        FILE_FLAG_BACKUP_SEMANTICS));
-
-    DWORD err;
-    if (!h)
-    {
-        err = ::GetLastError();
-
-    fail_err:
-        emit_error(err, source, ec, "boost::filesystem::canonical");
-        return path();
-    }
-
-    WCHAR path_small_buf[small_path_size];
-    std::unique_ptr< WCHAR[] > path_large_buf;
-    WCHAR* path_buf = path_small_buf;
-    DWORD path_buf_size = sizeof(path_small_buf) / sizeof(*path_small_buf);
-    DWORD flags = FILE_NAME_NORMALIZED;
-    DWORD path_len;
-
-    while (true)
-    {
-        path_len = ::GetFinalPathNameByHandleW(h.get(), path_buf, path_buf_size, flags);
-        if (path_len > 0)
-        {
-            if (path_len < path_buf_size)
-                break;
-
-            // The buffer is not large enough, path_len is the required buffer size, including the terminating zero
-            path_large_buf.reset(new WCHAR[path_len]);
-            path_buf = path_large_buf.get();
-            path_buf_size = path_len;
-        }
-        else
-        {
-            err = ::GetLastError();
-            if (BOOST_UNLIKELY(err == ERROR_PATH_NOT_FOUND && (flags & VOLUME_NAME_NT) == 0u))
-            {
-                // Drive letter does not exist for the file, obtain an NT path for it
-                flags |= VOLUME_NAME_NT;
-                continue;
-            }
-
-            goto fail_err;
-        }
-    }
-
-    path result;
-    if ((flags & VOLUME_NAME_NT) == 0u)
-    {
-        // If the input path did not contain a long path prefix, convert
-        // "\\?\X:" to "X:" and "\\?\UNC\" to "\\". Otherwise, preserve the prefix.
-        const path::value_type* source_str = source.c_str();
-        if (source.size() < 4u ||
-            source_str[0] != path::preferred_separator ||
-            source_str[1] != path::preferred_separator ||
-            source_str[2] != questionmark ||
-            source_str[3] != path::preferred_separator)
-        {
-            if (path_len >= 6u &&
-                path_buf[0] == path::preferred_separator &&
-                path_buf[1] == path::preferred_separator &&
-                path_buf[2] == questionmark &&
-                path_buf[3] == path::preferred_separator)
-            {
-                if (path_buf[5] == colon && detail::is_letter(path_buf[4]))
-                {
-                    path_buf += 4;
-                    path_len -= 4u;
-                }
-                else if (path_len >= 8u &&
-                    (path_buf[4] == L'U' || path_buf[4] == L'u') &&
-                    (path_buf[5] == L'N' || path_buf[5] == L'n') &&
-                    (path_buf[6] == L'C' || path_buf[6] == L'c') &&
-                    path_buf[7] == path::preferred_separator)
-                {
-                    path_buf += 6;
-                    path_len -= 6u;
-                    path_buf[0] = path::preferred_separator;
-                }
-            }
-        }
-
-        result.assign(path_buf, path_buf + path_len);
-    }
-    else
-    {
-        // Convert NT path to a Win32 path
-        result.assign(L"\\\\?\\GLOBALROOT");
-        result.concat(path_buf, path_buf + path_len);
-    }
-
-    BOOST_ASSERT_MSG(result.is_absolute(), "canonical() implementation error; please report");
-    return result;
-
-#endif // defined(BOOST_POSIX_API)
-}
-
-} // unnamed namespace
-
-BOOST_FILESYSTEM_DECL
-path canonical_v3(path const& p, path const& base, system::error_code* ec)
-{
-    path source(detail::absolute_v3(p, base, ec));
-    if (ec && *ec)
-        return path();
-
-    return detail::canonical_common(source, ec);
 }
 
 BOOST_FILESYSTEM_DECL
@@ -2799,9 +2695,124 @@ path canonical_v4(path const& p, path const& base, system::error_code* ec)
 {
     path source(detail::absolute_v4(p, base, ec));
     if (ec && *ec)
+    {
+    return_empty_path:
         return path();
+    }
 
-    return detail::canonical_common(source, ec);
+    system::error_code local_ec;
+    file_status st(detail::status_impl(source, &local_ec));
+
+    if (st.type() == fs::file_not_found)
+    {
+        local_ec = system::errc::make_error_code(system::errc::no_such_file_or_directory);
+        goto fail_local_ec;
+    }
+    else if (local_ec)
+    {
+    fail_local_ec:
+        if (!ec)
+            BOOST_FILESYSTEM_THROW(filesystem_error("boost::filesystem::canonical", source, local_ec));
+
+        *ec = local_ec;
+        goto return_empty_path;
+    }
+
+    path root(source.root_path());
+    path const& dot_p = dot_path();
+    path const& dot_dot_p = dot_dot_path();
+    unsigned int symlinks_allowed = symloop_max;
+    path result;
+    while (true)
+    {
+        for (path::iterator itr(source.begin()), end(source.end()); itr != end; path_algorithms::increment_v4(itr))
+        {
+            if (path_algorithms::compare_v4(*itr, dot_p) == 0)
+                continue;
+            if (path_algorithms::compare_v4(*itr, dot_dot_p) == 0)
+            {
+                if (path_algorithms::compare_v4(result, root) != 0)
+                    result.remove_filename_and_trailing_separators();
+                continue;
+            }
+
+            if (itr->size() == 1u && detail::is_directory_separator(itr->native()[0]))
+            {
+                // Convert generic separator returned by the iterator for the root directory to
+                // the preferred separator. This is important on Windows, as in some cases,
+                // like paths for network shares and cloud storage mount points GetFileAttributesW
+                // will return "file not found" if the path contains forward slashes.
+                result += path::preferred_separator;
+                // We don't need to check for a symlink after adding a separator.
+                continue;
+            }
+
+            path_algorithms::append_v4(result, *itr);
+
+            // If we don't have an absolute path yet then don't check symlink status.
+            // This avoids checking "C:" which is "the current directory on drive C"
+            // and hence not what we want to check/resolve here.
+            if (!result.is_absolute())
+                continue;
+
+            st = detail::symlink_status_impl(result, ec);
+            if (ec && *ec)
+                goto return_empty_path;
+
+            if (is_symlink(st))
+            {
+                if (symlinks_allowed == 0)
+                {
+                    local_ec = system::errc::make_error_code(system::errc::too_many_symbolic_link_levels);
+                    goto fail_local_ec;
+                }
+
+                --symlinks_allowed;
+
+                path link(detail::read_symlink(result, ec));
+                if (ec && *ec)
+                    goto return_empty_path;
+                result.remove_filename_and_trailing_separators();
+
+                if (link.is_absolute())
+                {
+                    for (path_algorithms::increment_v4(itr); itr != end; path_algorithms::increment_v4(itr))
+                    {
+                        if (path_algorithms::compare_v4(*itr, dot_p) != 0)
+                            path_algorithms::append_v4(link, *itr);
+                    }
+                    source = link;
+                    root = source.root_path();
+                }
+                else // link is relative
+                {
+                    link.remove_trailing_separator();
+                    if (path_algorithms::compare_v4(link, dot_p) == 0)
+                        continue;
+
+                    path new_source(result);
+                    path_algorithms::append_v4(new_source, link);
+                    for (path_algorithms::increment_v4(itr); itr != end; path_algorithms::increment_v4(itr))
+                    {
+                        if (path_algorithms::compare_v4(*itr, dot_p) != 0)
+                            path_algorithms::append_v4(new_source, *itr);
+                    }
+                    source = new_source;
+                }
+
+                // symlink causes scan to be restarted
+                goto restart_scan;
+            }
+        }
+
+        break;
+
+    restart_scan:
+        result.clear();
+    }
+
+    BOOST_ASSERT_MSG(result.is_absolute(), "canonical() implementation error; please report");
+    return result;
 }
 
 BOOST_FILESYSTEM_DECL

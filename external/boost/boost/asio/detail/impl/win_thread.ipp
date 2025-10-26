@@ -2,7 +2,7 @@
 // detail/impl/win_thread.ipp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2025 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2024 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -34,29 +34,25 @@ namespace detail {
 
 win_thread::~win_thread()
 {
-  if (arg_)
-    std::terminate();
+  ::CloseHandle(thread_);
+
+  // The exit_event_ handle is deliberately allowed to leak here since it
+  // is an error for the owner of an internal thread not to join() it.
 }
 
 void win_thread::join()
 {
-  if (arg_)
+  HANDLE handles[2] = { exit_event_, thread_ };
+  ::WaitForMultipleObjects(2, handles, FALSE, INFINITE);
+  ::CloseHandle(exit_event_);
+  if (terminate_threads())
   {
-    HANDLE handles[2] = { arg_->exit_event_, arg_->thread_ };
-    ::WaitForMultipleObjects(2, handles, FALSE, INFINITE);
-    ::CloseHandle(arg_->exit_event_);
-    if (terminate_threads())
-    {
-      ::TerminateThread(arg_->thread_, 0);
-    }
-    else
-    {
-      ::QueueUserAPC(apc_function, arg_->thread_, 0);
-      ::WaitForSingleObject(arg_->thread_, INFINITE);
-    }
-    ::CloseHandle(arg_->thread_);
-    arg_->destroy();
-    arg_ = 0;
+    ::TerminateThread(thread_, 0);
+  }
+  else
+  {
+    ::QueueUserAPC(apc_function, thread_, 0);
+    ::WaitForSingleObject(thread_, INFINITE);
   }
 }
 
@@ -67,60 +63,60 @@ std::size_t win_thread::hardware_concurrency()
   return system_info.dwNumberOfProcessors;
 }
 
-win_thread::func_base* win_thread::start_thread(
-    func_base* arg, unsigned int stack_size)
+void win_thread::start_thread(func_base* arg, unsigned int stack_size)
 {
-  arg->entry_event_ = ::CreateEventW(0, true, false, 0);
-  if (!arg->entry_event_)
+  ::HANDLE entry_event = 0;
+  arg->entry_event_ = entry_event = ::CreateEventW(0, true, false, 0);
+  if (!entry_event)
   {
     DWORD last_error = ::GetLastError();
-    arg->destroy();
+    delete arg;
     boost::system::error_code ec(last_error,
         boost::asio::error::get_system_category());
     boost::asio::detail::throw_error(ec, "thread.entry_event");
   }
 
-  arg->exit_event_ = ::CreateEventW(0, true, false, 0);
-  if (!arg->exit_event_)
+  arg->exit_event_ = exit_event_ = ::CreateEventW(0, true, false, 0);
+  if (!exit_event_)
   {
     DWORD last_error = ::GetLastError();
-    ::CloseHandle(arg->entry_event_);
-    arg->destroy();
+    delete arg;
     boost::system::error_code ec(last_error,
         boost::asio::error::get_system_category());
     boost::asio::detail::throw_error(ec, "thread.exit_event");
   }
 
   unsigned int thread_id = 0;
-  arg->thread_ = reinterpret_cast<HANDLE>(::_beginthreadex(0,
+  thread_ = reinterpret_cast<HANDLE>(::_beginthreadex(0,
         stack_size, win_thread_function, arg, 0, &thread_id));
-  if (!arg->thread_)
+  if (!thread_)
   {
     DWORD last_error = ::GetLastError();
-    ::CloseHandle(arg->entry_event_);
-    ::CloseHandle(arg->exit_event_);
-    arg->destroy();
+    delete arg;
+    if (entry_event)
+      ::CloseHandle(entry_event);
+    if (exit_event_)
+      ::CloseHandle(exit_event_);
     boost::system::error_code ec(last_error,
         boost::asio::error::get_system_category());
     boost::asio::detail::throw_error(ec, "thread");
   }
 
-  if (arg->entry_event_)
+  if (entry_event)
   {
-    ::WaitForSingleObject(arg->entry_event_, INFINITE);
-    ::CloseHandle(arg->entry_event_);
-    arg->entry_event_ = 0;
+    ::WaitForSingleObject(entry_event, INFINITE);
+    ::CloseHandle(entry_event);
   }
-
-  return arg;
 }
 
 unsigned int __stdcall win_thread_function(void* arg)
 {
-  win_thread::func_base* func = static_cast<win_thread::func_base*>(arg);
-  ::SetEvent(func->entry_event_);
+  win_thread::auto_func_base_ptr func = {
+      static_cast<win_thread::func_base*>(arg) };
 
-  func->run();
+  ::SetEvent(func.ptr->entry_event_);
+
+  func.ptr->run();
 
   // Signal that the thread has finished its work, but rather than returning go
   // to sleep to put the thread into a well known state. If the thread is being
@@ -128,7 +124,10 @@ unsigned int __stdcall win_thread_function(void* arg)
   // TerminateThread (to avoid a deadlock in DllMain). Otherwise, the SleepEx
   // call will be interrupted using QueueUserAPC and the thread will shut down
   // cleanly.
-  ::SetEvent(func->exit_event_);
+  HANDLE exit_event = func.ptr->exit_event_;
+  delete func.ptr;
+  func.ptr = 0;
+  ::SetEvent(exit_event);
   ::SleepEx(INFINITE, TRUE);
 
   return 0;

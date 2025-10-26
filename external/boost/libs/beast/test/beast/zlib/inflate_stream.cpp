@@ -637,6 +637,9 @@ public:
     void
     run() override
     {
+        log <<
+            "sizeof(inflate_stream) == " <<
+            sizeof(inflate_stream) << std::endl;
         testInflate(zlib_decompressor);
         testInflate(beast_decompressor);
         testInflateErrors(zlib_decompressor);

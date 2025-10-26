@@ -3,7 +3,7 @@
  * (See accompanying file LICENSE_1_0.txt or copy at
  * http://www.boost.org/LICENSE_1_0.txt)
  *
- * Copyright (c) 2018-2025 Andrey Semashev
+ * Copyright (c) 2018 Andrey Semashev
  */
 /*!
  * \file   atomic/detail/type_traits/is_trivially_default_constructible.hpp
@@ -14,8 +14,12 @@
 #ifndef BOOST_ATOMIC_DETAIL_TYPE_TRAITS_IS_TRIVIALLY_DEFAULT_CONSTRUCTIBLE_HPP_INCLUDED_
 #define BOOST_ATOMIC_DETAIL_TYPE_TRAITS_IS_TRIVIALLY_DEFAULT_CONSTRUCTIBLE_HPP_INCLUDED_
 
-#include <type_traits>
 #include <boost/atomic/detail/config.hpp>
+#if !defined(BOOST_NO_CXX11_HDR_TYPE_TRAITS)
+#include <type_traits>
+#else
+#include <boost/type_traits/has_trivial_constructor.hpp>
+#endif
 
 #ifdef BOOST_HAS_PRAGMA_ONCE
 #pragma once
@@ -25,19 +29,15 @@ namespace boost {
 namespace atomics {
 namespace detail {
 
-#if !defined(BOOST_LIBSTDCXX_VERSION) || (BOOST_LIBSTDCXX_VERSION >= 50100)
-
+#if !defined(BOOST_NO_CXX11_HDR_TYPE_TRAITS)
 using std::is_trivially_default_constructible;
-
-#else // !defined(BOOST_LIBSTDCXX_VERSION) || (BOOST_LIBSTDCXX_VERSION >= 50100)
-
+#elif !defined(BOOST_NO_CXX11_TEMPLATE_ALIASES)
 template< typename T >
-struct is_trivially_default_constructible :
-    public std::has_trivial_default_constructor< typename std::remove_cv< typename std::remove_all_extents< T >::type >::type >::type
-{
-};
-
-#endif // !defined(BOOST_LIBSTDCXX_VERSION) || (BOOST_LIBSTDCXX_VERSION >= 50100)
+using is_trivially_default_constructible = boost::has_trivial_constructor< T >;
+#else
+template< typename T >
+struct is_trivially_default_constructible : public boost::has_trivial_constructor< T > {};
+#endif
 
 } // namespace detail
 } // namespace atomics

@@ -10,8 +10,6 @@
 #ifndef BOOST_BEAST_HTTP_PARSER_HPP
 #define BOOST_BEAST_HTTP_PARSER_HPP
 
-#include <boost/beast/http/parser_fwd.hpp>
-
 #include <boost/beast/core/detail/config.hpp>
 #include <boost/beast/http/basic_parser.hpp>
 #include <boost/beast/http/message.hpp>
@@ -45,17 +43,10 @@ namespace http {
 
     @note A new instance of the parser is required for each message.
 */
-#if BOOST_BEAST_DOXYGEN
 template<
     bool isRequest,
     class Body,
     class Allocator = std::allocator<char>>
-#else
-template<
-    bool isRequest,
-    class Body,
-    class Allocator>
-#endif
 class parser
     : public basic_parser<isRequest>
 {
@@ -439,9 +430,9 @@ private:
         field name,
         string_view name_string,
         string_view value,
-        error_code& ec) override
+        error_code&) override
     {
-        m_.insert(name, name_string, value, ec);
+        m_.insert(name, name_string, value);
     }
 
     void
@@ -498,7 +489,6 @@ private:
     }
 };
 
-#if BOOST_BEAST_DOXYGEN
 /// An HTTP/1 parser for producing a request message.
 template<class Body, class Allocator = std::allocator<char>>
 using request_parser = parser<true, Body, Allocator>;
@@ -506,7 +496,6 @@ using request_parser = parser<true, Body, Allocator>;
 /// An HTTP/1 parser for producing a response message.
 template<class Body, class Allocator = std::allocator<char>>
 using response_parser = parser<false, Body, Allocator>;
-#endif
 
 } // http
 } // beast

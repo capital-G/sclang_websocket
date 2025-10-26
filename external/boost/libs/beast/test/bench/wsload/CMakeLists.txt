@@ -1,6 +1,5 @@
 #
 # Copyright (c) 2016-2017 Vinnie Falco (vinnie dot falco at gmail dot com)
-# Copyright (c) 2024 Mohammad Nejati
 #
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -8,16 +7,18 @@
 # Official repository: https://github.com/boostorg/beast
 #
 
-add_executable(boost_beast_bench_wsload
+GroupSources (include/boost/beast beast)
+GroupSources (test/bench/wsload "/")
+
+add_executable (bench-wsload
+    ${BOOST_BEAST_FILES}
     Jamfile
-    wsload.cpp)
+    wsload.cpp
+    )
 
-source_group("" FILES
-    Jamfile
-    wsload.cpp)
+target_link_libraries(bench-wsload
+    lib-asio
+    lib-beast
+    )
 
-target_link_libraries(boost_beast_bench_wsload
-    boost_beast_lib_beast)
-
-set_target_properties(boost_beast_bench_wsload
-    PROPERTIES FOLDER "tests-bench")
+set_property(TARGET bench-wsload PROPERTY FOLDER "tests-bench")

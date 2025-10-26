@@ -10,19 +10,20 @@
 #ifndef BOOST_BEAST_HTTP_MESSAGE_HPP
 #define BOOST_BEAST_HTTP_MESSAGE_HPP
 
-#include <boost/beast/http/message_fwd.hpp>
-
 #include <boost/beast/core/detail/config.hpp>
-#include <boost/beast/core/string.hpp>
 #include <boost/beast/http/fields.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/type_traits.hpp>
-#include <boost/beast/http/verb.hpp>
-#include <boost/assert.hpp>
+#include <boost/beast/core/string.hpp>
 #include <boost/core/empty_value.hpp>
 #include <boost/mp11/integer_sequence.hpp>
+#include <boost/assert.hpp>
 #include <boost/optional.hpp>
 #include <boost/throw_exception.hpp>
+#include <memory>
+#include <stdexcept>
+#include <string>
 #include <tuple>
 #include <utility>
 
@@ -47,7 +48,11 @@ namespace http {
 #if BOOST_BEAST_DOXYGEN
 template<bool isRequest, class Fields = fields>
 class header : public Fields
+
 #else
+template<bool isRequest, class Fields = fields>
+class header;
+
 template<class Fields>
 class header<true, Fields> : public Fields
 #endif
@@ -440,7 +445,6 @@ private:
 #endif
 };
 
-#if BOOST_BEAST_DOXYGEN
 /// A typical HTTP request header
 template<class Fields = fields>
 using request_header = header<true, Fields>;
@@ -448,7 +452,6 @@ using request_header = header<true, Fields>;
 /// A typical HTTP response header
 template<class Fields = fields>
 using response_header = header<false, Fields>;
-#endif
 
 #if defined(BOOST_MSVC)
 // Workaround for MSVC bug with private base classes
@@ -487,11 +490,7 @@ using value_type_t = typename T::value_type;
     @tparam Fields The type of container used to hold the
     field value pairs.
 */
-#if BOOST_BEAST_DOXYGEN
 template<bool isRequest, class Body, class Fields = fields>
-#else
-template<bool isRequest, class Body, class Fields>
-#endif
 class message
     : public header<isRequest, Fields>
 #if ! BOOST_BEAST_DOXYGEN
@@ -973,7 +972,6 @@ private:
     prepare_payload(std::false_type);
 };
 
-#if BOOST_BEAST_DOXYGEN
 /// A typical HTTP request
 template<class Body, class Fields = fields>
 using request = message<true, Body, Fields>;
@@ -981,7 +979,6 @@ using request = message<true, Body, Fields>;
 /// A typical HTTP response
 template<class Body, class Fields = fields>
 using response = message<false, Body, Fields>;
-#endif
 
 //------------------------------------------------------------------------------
 

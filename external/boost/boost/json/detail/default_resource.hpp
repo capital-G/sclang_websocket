@@ -11,7 +11,7 @@
 #define BOOST_JSON_DEFAULT_RESOURCE_HPP
 
 #include <boost/json/detail/config.hpp>
-#include <boost/container/pmr/memory_resource.hpp>
+#include <new>
 
 namespace boost {
 namespace json {

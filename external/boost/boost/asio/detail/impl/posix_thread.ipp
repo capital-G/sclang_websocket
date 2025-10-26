@@ -2,7 +2,7 @@
 // detail/impl/posix_thread.ipp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2025 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2024 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -31,17 +31,16 @@ namespace detail {
 
 posix_thread::~posix_thread()
 {
-  if (arg_)
-    std::terminate();
+  if (!joined_)
+    ::pthread_detach(thread_);
 }
 
 void posix_thread::join()
 {
-  if (arg_)
+  if (!joined_)
   {
-    ::pthread_join(arg_->thread_, 0);
-    arg_->destroy();
-    arg_ = 0;
+    ::pthread_join(thread_, 0);
+    joined_ = true;
   }
 }
 
@@ -55,23 +54,24 @@ std::size_t posix_thread::hardware_concurrency()
   return 0;
 }
 
-posix_thread::func_base* posix_thread::start_thread(func_base* arg)
+void posix_thread::start_thread(func_base* arg)
 {
-  int error = ::pthread_create(&arg->thread_, 0,
+  int error = ::pthread_create(&thread_, 0,
         boost_asio_detail_posix_thread_function, arg);
   if (error != 0)
   {
-    arg->destroy();
+    delete arg;
     boost::system::error_code ec(error,
         boost::asio::error::get_system_category());
     boost::asio::detail::throw_error(ec, "thread");
   }
-  return arg;
 }
 
 void* boost_asio_detail_posix_thread_function(void* arg)
 {
-  static_cast<posix_thread::func_base*>(arg)->run();
+  posix_thread::auto_func_base_ptr func = {
+      static_cast<posix_thread::func_base*>(arg) };
+  func.ptr->run();
   return 0;
 }
 

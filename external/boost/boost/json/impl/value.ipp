@@ -238,6 +238,7 @@ value(
     }
     else
     {
+#ifndef BOOST_JSON_LEGACY_INIT_LIST_BEHAVIOR
         if( init.size() == 1 )
         {
             ::new(&sca_) scalar();
@@ -245,6 +246,7 @@ value(
             swap(temp);
         }
         else
+#endif
         {
             ::new(&arr_) array(
                 value_ref::make_array(

@@ -20,6 +20,7 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/beast.hpp>
 #include <boost/beast/ssl.hpp>
+#include <boost/scope/scope_exit.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -242,42 +243,17 @@ public:
         auto lg = std::lock_guard{ mtx_ };
         auto cs = css_.emplace(css_.end());
 
-        class remover
-        {
-            task_group* tg_;
-            decltype(css_)::iterator cs_;
-
-        public:
-            remover(
-                task_group* tg,
-                decltype(css_)::iterator cs)
-                : tg_{ tg }
-                , cs_{ cs }
-            {
-            }
-
-            remover(remover&& other) noexcept
-                : tg_{ std::exchange(other.tg_, nullptr) }
-                , cs_{ other.cs_ }
-            {
-            }
-
-            ~remover()
-            {
-                if(tg_)
-                {
-                    auto lg = std::lock_guard{ tg_->mtx_ };
-                    if(tg_->css_.erase(cs_) == tg_->css_.end())
-                        tg_->cv_.cancel();
-                }
-            }
-        };
-
         return net::bind_cancellation_slot(
             cs->slot(),
             net::consign(
                 std::forward<CompletionToken>(completion_token),
-                remover{ this, cs }));
+                boost::scope::make_scope_exit(
+                    [this, cs]()
+                    {
+                        auto lg = std::lock_guard{ mtx_ };
+                        if(css_.erase(cs) == css_.end())
+                            cv_.cancel();
+                    })));
     }
 
     /** Emits the signal to all child tasks and invokes the slot's
@@ -362,7 +338,8 @@ net::awaitable<void, executor_type>
 run_websocket_session(
     Stream& stream,
     beast::flat_buffer& buffer,
-    http::request<http::string_body> req)
+    http::request<http::string_body> req,
+    beast::string_view doc_root)
 {
     auto cs = co_await net::this_coro::cancellation_state;
     auto ws = websocket::stream<Stream&>{ stream };
@@ -437,7 +414,7 @@ run_session(
             beast::get_lowest_layer(stream).expires_never();
 
             co_await run_websocket_session(
-                stream, buffer, parser.release());
+                stream, buffer, parser.release(), doc_root);
 
             co_return;
         }
@@ -580,9 +557,7 @@ handle_signals(task_group& task_group)
     }
     else // SIGTERM
     {
-        net::query(
-            executor.get_inner_executor(),
-            net::execution::context).stop();
+        executor.get_inner_executor().context().stop();
     }
 }
 

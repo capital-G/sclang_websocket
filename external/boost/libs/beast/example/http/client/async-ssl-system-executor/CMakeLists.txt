@@ -1,6 +1,5 @@
 #
 # Copyright (c) 2016-2017 Vinnie Falco (vinnie dot falco at gmail dot com)
-# Copyright (c) 2024 Mohammad Nejati
 #
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -8,19 +7,25 @@
 # Official repository: https://github.com/boostorg/beast
 #
 
-add_executable(http-client-async-ssl-system-executor
-    Jamfile
-    http_client_async_ssl_system_executor.cpp)
+if (OPENSSL_FOUND)
+    GroupSources(include/boost/beast beast)
+    GroupSources(example/common common)
+    GroupSources(example/http/client/async-ssl-system-executor "/")
 
-source_group("" FILES
-    Jamfile
-    http_client_async_ssl_system_executor.cpp)
+    add_executable (http-client-async-ssl-system-executor
+        ${BOOST_BEAST_FILES}
+        ${PROJECT_SOURCE_DIR}/example/common/root_certificates.hpp
+        Jamfile
+        http_client_async_ssl_system_executor.cpp
+    )
 
-target_include_directories(http-client-async-ssl-system-executor
-    PRIVATE ${PROJECT_SOURCE_DIR})
+    set_property(TARGET http-client-async-ssl-system-executor PROPERTY FOLDER "example-http-client")
 
-target_link_libraries(http-client-async-ssl-system-executor
-    PRIVATE Boost::beast OpenSSL::SSL OpenSSL::Crypto)
+    target_link_libraries (http-client-async-ssl-system-executor
+        OpenSSL::SSL OpenSSL::Crypto
+        lib-asio
+        lib-asio-ssl
+        lib-beast
+        )
 
-set_target_properties(http-client-async-ssl-system-executor
-    PROPERTIES FOLDER "example-http-client")
+endif()

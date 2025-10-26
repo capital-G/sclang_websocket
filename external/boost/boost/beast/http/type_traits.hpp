@@ -24,6 +24,9 @@ namespace boost {
 namespace beast {
 namespace http {
 
+template<bool, class, class>
+class message;
+
 /** Determine if a type meets the <em>Body</em> named requirements.
 
     This alias template is `std::true_type` if `T` meets

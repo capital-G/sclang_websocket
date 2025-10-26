@@ -290,7 +290,7 @@ private:
             return;
 
         if(ec)
-            return fail(ec, "read");
+            fail(ec, "read");
 
         // Echo the message
         ws_.text(ws_.got_text());

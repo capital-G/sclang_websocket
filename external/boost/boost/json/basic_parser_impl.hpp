@@ -12,7 +12,6 @@
 #define BOOST_JSON_BASIC_PARSER_IMPL_HPP
 
 #include <boost/json/detail/config.hpp>
-#include <boost/json/detail/literals.hpp>
 #include <boost/json/basic_parser.hpp>
 #include <boost/json/error.hpp>
 #include <boost/json/detail/buffer.hpp>
@@ -186,6 +185,17 @@ hex_digit(unsigned char c) noexcept
         return 10 + c - 'A';
     return -1;
 }
+
+enum json_literal
+{
+    null_literal = 0,
+    true_literal,
+    false_literal,
+    infinity_literal,
+    neg_infinity_literal,
+    nan_literal,
+    resume_literal = -1
+};
 
 } // detail
 
@@ -646,11 +656,11 @@ loop:
                 static_cast<unsigned char>(opt_.numbers),
                 parse_number_helper<true, '+'>{ this, p });
         case 'n':
-            return parse_literal( p, detail::literals_c<detail::literals::null>() );
+            return parse_literal( p, mp11::mp_int<detail::null_literal>() );
         case 't':
-            return parse_literal( p, detail::literals_c<detail::literals::true_>() );
+            return parse_literal( p, mp11::mp_int<detail::true_literal>() );
         case 'f':
-            return parse_literal( p, detail::literals_c<detail::literals::false_>() );
+            return parse_literal( p, mp11::mp_int<detail::false_literal>() );
         case 'I':
             if( !opt_.allow_infinity_and_nan )
             {
@@ -658,7 +668,7 @@ loop:
                     = BOOST_CURRENT_LOCATION;
                 return fail(p, error::syntax, &loc);
             }
-            return parse_literal( p, detail::literals_c<detail::literals::infinity>() );
+            return parse_literal( p, mp11::mp_int<detail::infinity_literal>() );
         case 'N':
             if( !opt_.allow_infinity_and_nan )
             {
@@ -666,7 +676,7 @@ loop:
                     = BOOST_CURRENT_LOCATION;
                 return fail(p, error::syntax, &loc);
             }
-            return parse_literal(p, detail::literals_c<detail::literals::nan>() );
+            return parse_literal( p, mp11::mp_int<detail::nan_literal>() );
         case '"':
             return parse_string(p, std::true_type(), std::false_type(), allow_bad_utf8, allow_bad_utf16);
         case '[':
@@ -686,7 +696,7 @@ loop:
             // or just leave it as is
             if(BOOST_JSON_UNLIKELY(p == sentinel()))
                 return maybe_suspend(p, state::val2);
-            BOOST_FALLTHROUGH;
+            // intentional fallthrough
         case ' ':
         case '\t':
         case '\n':
@@ -725,7 +735,7 @@ resume_value(const char* p,
     {
     default: BOOST_JSON_UNREACHABLE();
     case state::lit1:
-        return parse_literal(p,  detail::literals_c<detail::literals::resume>() );
+        return parse_literal(p,  mp11::mp_int<detail::resume_literal>() );
 
     case state::str1: case state::str2:
     case state::str8:
@@ -786,74 +796,95 @@ resume_value(const char* p,
 }
 
 template<class Handler>
-template<class Literal>
+template<int Literal>
 const char*
 basic_parser<Handler>::
-parse_literal(const char* p, Literal)
+parse_literal(const char* p,
+    std::integral_constant<int, Literal> literal)
 {
-    using L = detail::literals;
+    constexpr char const* literals[] = {
+        "null",
+        "true",
+        "false",
+        "Infinity",
+        "-Infinity",
+        "NaN",
+    };
+
+    constexpr std::size_t literal_sizes[] = {
+        4,
+        4,
+        5,
+        8,
+        9,
+        3,
+    };
 
     std::size_t cur_lit;
     std::size_t offset;
 
     detail::const_stream_wrapper cs(p, end_);
-    BOOST_IF_CONSTEXPR( Literal::value != L::resume )
+    BOOST_IF_CONSTEXPR( literal != detail::resume_literal )
     {
-        constexpr std::size_t index = literal_index(Literal::value);
-        constexpr char const* literal = detail::literal_strings[index];
-        constexpr std::size_t sz = detail::literal_sizes[index];
-
-        if(BOOST_JSON_LIKELY( cs.remain() >= sz ))
+        BOOST_ASSERT( literal >= 0 );
+        if(BOOST_JSON_LIKELY( cs.remain() >= literal_sizes[literal] ))
         {
-            int const cmp = std::memcmp(cs.begin(), literal, sz);
+            int const cmp = std::memcmp(
+                cs.begin(), literals[literal], literal_sizes[literal] );
             if( cmp != 0 )
             {
                 BOOST_STATIC_CONSTEXPR source_location loc = BOOST_CURRENT_LOCATION;
                 return fail(cs.begin(), error::syntax, &loc);
             }
 
-            BOOST_IF_CONSTEXPR( Literal::value == L::null )
+            BOOST_IF_CONSTEXPR( literal == detail::null_literal )
             {
                 if(BOOST_JSON_UNLIKELY(
                     ! h_.on_null(ec_)))
                     return fail(cs.begin());
             }
-            else BOOST_IF_CONSTEXPR( Literal::value == L::true_ )
+            else BOOST_IF_CONSTEXPR( literal == detail::true_literal )
             {
                 if(BOOST_JSON_UNLIKELY(
                     ! h_.on_bool(true, ec_)))
                     return fail(cs.begin());
             }
-            else BOOST_IF_CONSTEXPR( Literal::value == L::false_ )
+            else BOOST_IF_CONSTEXPR( literal == detail::false_literal )
             {
                 if(BOOST_JSON_UNLIKELY(
                     ! h_.on_bool(false, ec_)))
                     return fail(cs.begin());
             }
-            else BOOST_IF_CONSTEXPR( Literal::value == L::infinity )
+            else BOOST_IF_CONSTEXPR( literal == detail::infinity_literal )
             {
                 if(BOOST_JSON_UNLIKELY(
                     ! h_.on_double(
                         std::numeric_limits<double>::infinity(),
-                        string_view(literal, sz),
+                        string_view(
+                            literals[detail::infinity_literal],
+                            literal_sizes[detail::infinity_literal]),
                         ec_)))
                     return fail(cs.begin());
             }
-            else BOOST_IF_CONSTEXPR( Literal::value == L::neg_infinity )
+            else BOOST_IF_CONSTEXPR( literal == detail::neg_infinity_literal )
             {
                 if(BOOST_JSON_UNLIKELY(
                     ! h_.on_double(
                         -std::numeric_limits<double>::infinity(),
-                        string_view(literal, sz),
+                        string_view(
+                            literals[detail::neg_infinity_literal],
+                            literal_sizes[detail::neg_infinity_literal]),
                         ec_)))
                     return fail(cs.begin());
             }
-            else BOOST_IF_CONSTEXPR( Literal::value == L::nan )
+            else BOOST_IF_CONSTEXPR( literal == detail::nan_literal )
             {
                 if(BOOST_JSON_UNLIKELY(
                     ! h_.on_double(
                         std::numeric_limits<double>::quiet_NaN(),
-                        string_view(literal, sz),
+                        string_view(
+                            literals[detail::nan_literal],
+                            literal_sizes[detail::nan_literal]),
                         ec_)))
                     return fail(cs.begin());
             }
@@ -862,12 +893,12 @@ parse_literal(const char* p, Literal)
                 BOOST_JSON_UNREACHABLE();
             }
 
-            cs += sz;
+            cs += literal_sizes[literal];
             return cs.begin();
         }
 
         offset = 0;
-        cur_lit = index;
+        cur_lit = literal;
     }
     else
     {
@@ -879,19 +910,18 @@ parse_literal(const char* p, Literal)
         offset = lit_offset_;
     }
 
-    std::size_t const lit_size = detail::literal_sizes[cur_lit];
-    std::size_t const size = (std::min)( lit_size - offset, cs.remain() );
+    std::size_t const size = (std::min)(
+        literal_sizes[cur_lit] - offset, cs.remain() );
     int cmp = 0;
     if(BOOST_JSON_LIKELY( cs.begin() ))
-        cmp = std::memcmp(
-            cs.begin(), detail::literal_strings[cur_lit] + offset, size );
+        cmp = std::memcmp( cs.begin(), literals[cur_lit] + offset, size );
     if( cmp != 0 )
     {
         BOOST_STATIC_CONSTEXPR source_location loc = BOOST_CURRENT_LOCATION;
         return fail(cs.begin(), error::syntax, &loc);
     }
 
-    if(BOOST_JSON_UNLIKELY( offset + size < lit_size ))
+    if(BOOST_JSON_UNLIKELY( offset + size < literal_sizes[cur_lit] ))
     {
         BOOST_ASSERT( cur_lit < 256 );
         cur_lit_ = static_cast<unsigned char>( cur_lit );
@@ -900,50 +930,50 @@ parse_literal(const char* p, Literal)
         return maybe_suspend(cs.begin() + size, state::lit1);
     }
 
-    switch( static_cast<L>(cur_lit) )
+    switch( cur_lit )
     {
-    case L::null:
+    case detail::null_literal:
         if(BOOST_JSON_UNLIKELY(
             ! h_.on_null(ec_)))
             return fail(cs.begin());
         break;
-    case L::true_:
+    case detail::true_literal:
         if(BOOST_JSON_UNLIKELY(
             ! h_.on_bool(true, ec_)))
             return fail(cs.begin());
         break;
-    case L::false_:
+    case detail::false_literal:
         if(BOOST_JSON_UNLIKELY(
             ! h_.on_bool(false, ec_)))
             return fail(cs.begin());
         break;
-    case L::infinity:
+    case detail::infinity_literal:
         if(BOOST_JSON_UNLIKELY(
             ! h_.on_double(
                 std::numeric_limits<double>::infinity(),
                 string_view(
-                    detail::literal_strings[ literal_index(L::infinity) ],
-                    detail::literal_sizes[ literal_index(L::infinity) ]),
+                    literals[detail::infinity_literal],
+                    literal_sizes[detail::infinity_literal]),
                 ec_)))
             return fail(cs.begin());
         break;
-    case L::neg_infinity:
+    case detail::neg_infinity_literal:
         if(BOOST_JSON_UNLIKELY(
             ! h_.on_double(
                 -std::numeric_limits<double>::infinity(),
                 string_view(
-                    detail::literal_strings[ literal_index(L::neg_infinity) ],
-                    detail::literal_sizes[ literal_index(L::neg_infinity) ]),
+                    literals[detail::neg_infinity_literal],
+                    literal_sizes[detail::neg_infinity_literal]),
                 ec_)))
             return fail(cs.begin());
         break;
-    case L::nan:
+    case detail::nan_literal:
         if(BOOST_JSON_UNLIKELY(
             ! h_.on_double(
                 std::numeric_limits<double>::quiet_NaN(),
                 string_view(
-                    detail::literal_strings[ literal_index(L::nan) ],
-                    detail::literal_sizes[ literal_index(L::nan) ]),
+                    literals[detail::nan_literal],
+                    literal_sizes[detail::nan_literal]),
                 ec_)))
             return fail(cs.begin());
         break;
@@ -2032,8 +2062,7 @@ parse_number(const char* p,
                 if( negative && n1 == 0 && opt_.allow_infinity_and_nan )
                 {
                     return parse_literal(
-                        p - 1,
-                        detail::literals_c<detail::literals::neg_infinity>());
+                        p - 1, mp11::mp_int<detail::neg_infinity_literal>());
                 }
 
                 if( ! nonzero_first && n1 == 0 )
@@ -2180,10 +2209,10 @@ do_num1:
         else if( (negative || num.neg) && opt_.allow_infinity_and_nan )
         {
             st_.push(state::lit1);
-            cur_lit_ = literal_index(detail::literals::neg_infinity);
+            cur_lit_ = detail::neg_infinity_literal;
             lit_offset_ = 1;
             return parse_literal(
-                cs.begin(), detail::literals_c<detail::literals::resume>() );
+                cs.begin(), mp11::mp_int<detail::resume_literal>() );
         }
         else
         {

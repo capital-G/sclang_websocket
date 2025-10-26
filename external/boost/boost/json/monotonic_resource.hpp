@@ -13,6 +13,7 @@
 
 #include <boost/container/pmr/memory_resource.hpp>
 #include <boost/json/detail/config.hpp>
+#include <boost/json/memory_resource.hpp>
 #include <boost/json/storage_ptr.hpp>
 #include <cstddef>
 #include <utility>
@@ -28,33 +29,39 @@ namespace json {
 
 //----------------------------------------------------------
 
-/** A dynamically allocating resource with a trivial deallocate.
+/** A dynamically allocating resource with a trivial deallocate
 
-    This memory resource is a special-purpose resource that releases allocated
-    memory only when the resource is destroyed (or when @ref release is
-    called). It has a trivial deallocate function; that is, the metafunction
-    @ref is_deallocate_trivial returns `true`.
-
-    The resource can be constructed with an initial buffer. If there is no
-    initial buffer, or if the buffer is exhausted, subsequent dynamic
-    allocations are made from the system heap. The size of buffers obtained in
-    this fashion follow a geometric progression.
-
-    The purpose of this resource is to optimize the use case for performing
-    many allocations, followed by deallocating everything at once. This is
-    precisely the pattern of memory allocation which occurs when parsing:
-    allocation is performed for each parsed element, and when the the resulting
-    @ref value is no longer needed, the entire structure is destroyed. However,
-    it is not suited for modifying the value after parsing is complete;
-    reallocations waste memory, since the older buffer is not reclaimed until
-    the resource is destroyed.
+    This memory resource is a special-purpose resource
+    that releases allocated memory only when the resource
+    is destroyed (or when @ref release is called).
+    It has a trivial deallocate function; that is, the
+    metafunction @ref is_deallocate_trivial returns `true`.
+\n
+    The resource can be constructed with an initial buffer.
+    If there is no initial buffer, or if the buffer is
+    exhausted, subsequent dynamic allocations are made from
+    the system heap. The size of buffers obtained in this
+    fashion follow a geometric progression.
+\n
+    The purpose of this resource is to optimize the use
+    case for performing many allocations, followed by
+    deallocating everything at once. This is precisely the
+    pattern of memory allocation which occurs when parsing:
+    allocation is performed for each parsed element, and
+    when the the resulting @ref value is no longer needed,
+    the entire structure is destroyed. However, it is not
+    suited for modifying the value after parsing is
+    complete; reallocations waste memory, since the
+    older buffer is not reclaimed until the resource
+    is destroyed.
 
     @par Example
 
-    This parses a JSON text into a value which uses a local stack buffer, then
-    prints the result.
+    This parses a JSON text into a value which uses a local
+    stack buffer, then prints the result.
 
     @code
+
     unsigned char buf[ 4000 ];
     monotonic_resource mr( buf );
 
@@ -63,10 +70,12 @@ namespace json {
 
     // Print the JSON
     std::cout << jv;
+
     @endcode
 
-    @note The total amount of memory dynamically allocated is monotonically
-    increasing; That is, it never decreases.
+    @note The total amount of memory dynamically
+    allocated is monotonically increasing; That is,
+    it never decreases.
 
     @par Thread Safety
     Members of the same instance may not be
@@ -103,21 +112,21 @@ monotonic_resource final
         std::size_t n) noexcept;
 
 public:
-    /** Assignment operator.
+    /// Copy constructor (deleted)
+    monotonic_resource(
+        monotonic_resource const&) = delete;
 
-        Copy assignment operator is deleted. This type is not copyable or
-        movable.
-    */
+    /// Copy assignment (deleted)
     monotonic_resource& operator=(
         monotonic_resource const&) = delete;
 
-    /** Destructor.
+    /** Destructor
 
         Deallocates all the memory owned by this resource.
 
         @par Effects
         @code
-        release();
+        this->release();
         @endcode
 
         @par Complexity
@@ -128,19 +137,14 @@ public:
     */
     ~monotonic_resource();
 
-    /** Constructors.
+    /** Constructor
 
-        Construct the resource.
-
-        @li **(1)** indicates that the first internal dynamic allocation shall
-            be at least `initial_size` bytes.
-        @li **(2)**--**(5)** indicate that subsequent allocations should use
-            the specified caller-owned buffer. When this buffer is exhausted,
-            dynamic allocations from the upstream resource are made.
-        @li **(6)** copy constructor is deleted. This type is not copyable or
-            movable.
-
-        None of the constructors performs any dynamic allocations.
+        This constructs the resource and indicates
+        that the first internal dynamic allocation
+        shall be at least `initial_size` bytes.
+    \n
+        This constructor is guaranteed not to perform
+        any dynamic allocations.
 
         @par Complexity
         Constant.
@@ -148,36 +152,58 @@ public:
         @par Exception Safety
         No-throw guarantee.
 
-        @param initial_size The size of the first internal dynamic allocation.
-               If this is lower than the implementation-defined lower limit,
-               then the lower limit is used instead.
-        @param upstream An optional upstream memory resource to use for
-               performing internal dynamic allocations. If this parameter is
-               omitted, the \<\<default_memory_resource,default resource\>\> is
-               used.
+        @param initial_size The size of the first
+        internal dynamic allocation. If this is lower
+        than the implementation-defined lower limit, then
+        the lower limit is used instead.
 
-        @{
+        @param upstream An optional upstream memory resource
+        to use for performing internal dynamic allocations.
+        If this parameter is omitted, the default resource
+        is used.
     */
     explicit
     monotonic_resource(
         std::size_t initial_size = 1024,
         storage_ptr upstream = {}) noexcept;
 
-    /** Overload
+    /** Constructor
 
-        @param buffer The buffer to use. Ownership is not transferred; the
-               caller is responsible for ensuring that the lifetime of the
-               buffer extends until the resource is destroyed.
-        @param size The number of valid bytes pointed to by `buffer`.
-        @param upstream
+        This constructs the resource and indicates that
+        subsequent allocations should use the specified
+        caller-owned buffer.
+        When this buffer is exhausted, dynamic allocations
+        from the upstream resource are made.
+    \n
+        This constructor is guaranteed not to perform
+        any dynamic allocations.
+
+        @par Complexity
+        Constant.
+
+        @par Exception Safety
+        No-throw guarantee.
+
+        @param buffer The buffer to use.
+        Ownership is not transferred; the caller is
+        responsible for ensuring that the lifetime of
+        the buffer extends until the resource is destroyed.
+
+        @param size The number of valid bytes pointed
+        to by `buffer`.
+
+        @param upstream An optional upstream memory resource
+        to use for performing internal dynamic allocations.
+        If this parameter is omitted, the default resource
+        is used.
     */
+    /** @{ */
     monotonic_resource(
         unsigned char* buffer,
         std::size_t size,
         storage_ptr upstream = {}) noexcept;
 
 #if defined(__cpp_lib_byte) || defined(BOOST_JSON_DOCS)
-    /// Overload
     monotonic_resource(
         std::byte* buffer,
         std::size_t size,
@@ -188,8 +214,36 @@ public:
     {
     }
 #endif
+    /** @} */
 
-    /// Overload
+    /** Constructor
+
+        This constructs the resource and indicates that
+        subsequent allocations should use the specified
+        caller-owned buffer.
+        When this buffer is exhausted, dynamic allocations
+        from the upstream resource are made.
+    \n
+        This constructor is guaranteed not to perform
+        any dynamic allocations.
+
+        @par Complexity
+        Constant.
+
+        @par Exception Safety
+        No-throw guarantee.
+
+        @param buffer The buffer to use.
+        Ownership is not transferred; the caller is
+        responsible for ensuring that the lifetime of
+        the buffer extends until the resource is destroyed.
+
+        @param upstream An optional upstream memory resource
+        to use for performing internal dynamic allocations.
+        If this parameter is omitted, the default resource
+        is used.
+    */
+    /** @{ */
     template<std::size_t N>
     explicit
     monotonic_resource(
@@ -201,7 +255,6 @@ public:
     }
 
 #if defined(__cpp_lib_byte) || defined(BOOST_JSON_DOCS)
-    /// Overload
     template<std::size_t N>
     explicit
     monotonic_resource(
@@ -212,6 +265,7 @@ public:
     {
     }
 #endif
+    /** @} */
 
 #ifndef BOOST_JSON_DOCS
     // Safety net for accidental buffer overflows
@@ -246,11 +300,6 @@ public:
     }
 #endif
 #endif
-
-    /// Overload
-    monotonic_resource(
-        monotonic_resource const&) = delete;
-    /// @}
 
     /** Release all allocated memory.
 

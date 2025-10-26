@@ -332,28 +332,40 @@ public:
 
     BOOST_CXX14_CONSTEXPR T& operator*() noexcept
     {
-        BOOST_ASSERT( has_value() );
-        return *operator->();
+        T* p = operator->();
+
+        BOOST_ASSERT( p != 0 );
+
+        return *p;
     }
 
     BOOST_CXX14_CONSTEXPR T const& operator*() const noexcept
     {
-        BOOST_ASSERT( has_value() );
-        return *operator->();
+        T const* p = operator->();
+
+        BOOST_ASSERT( p != 0 );
+
+        return *p;
     }
 
 #else
 
     BOOST_CXX14_CONSTEXPR T& operator*() & noexcept
     {
-        BOOST_ASSERT( has_value() );
-        return *operator->();
+        T* p = operator->();
+
+        BOOST_ASSERT( p != 0 );
+
+        return *p;
     }
 
     BOOST_CXX14_CONSTEXPR T const& operator*() const & noexcept
     {
-        BOOST_ASSERT( has_value() );
-        return *operator->();
+        T const* p = operator->();
+
+        BOOST_ASSERT( p != 0 );
+
+        return *p;
     }
 
     template<class U = T>
@@ -826,8 +838,11 @@ public:
 
     BOOST_CXX14_CONSTEXPR U& operator*() const noexcept
     {
-        BOOST_ASSERT( has_value() );
-        return *operator->();
+        U* p = operator->();
+
+        BOOST_ASSERT( p != 0 );
+
+        return *p;
     }
 
     // error access

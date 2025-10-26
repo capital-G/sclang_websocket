@@ -1,6 +1,5 @@
 #
 # Copyright (c) 2016-2017 Vinnie Falco (vinnie dot falco at gmail dot com)
-# Copyright (c) 2024 Mohammad Nejati
 #
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -8,15 +7,17 @@
 # Official repository: https://github.com/boostorg/beast
 #
 
-add_executable(echo-op
+GroupSources(include/boost/beast beast)
+GroupSources(example/echo-op "/")
+
+add_executable (echo-op
+    ${BOOST_BEAST_FILES}
     Jamfile
-    echo_op.cpp)
+    echo_op.cpp
+)
 
-source_group("" FILES
-    Jamfile
-    echo_op.cpp)
+target_link_libraries(echo-op
+    lib-asio
+    lib-beast)
 
-target_link_libraries(echo-op PRIVATE Boost::beast)
-
-set_target_properties(echo-op
-    PROPERTIES FOLDER "example-echo-op")
+set_property(TARGET echo-op PROPERTY FOLDER "example")

@@ -8,7 +8,6 @@
 #
 
 build-project async ;
-build-project async-local ;
 build-project awaitable ;
 build-project chat-multi ;
 build-project coro ;

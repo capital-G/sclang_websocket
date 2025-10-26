@@ -13,9 +13,12 @@
 //  See http://www.boost.org/libs/smart_ptr/ for documentation.
 //
 
+#include <boost/smart_ptr/detail/requires_cxx11.hpp>
 #include <boost/smart_ptr/weak_ptr.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
+#include <boost/smart_ptr/detail/sp_noexcept.hpp>
 #include <boost/assert.hpp>
+#include <boost/config.hpp>
 
 namespace boost
 {
@@ -24,20 +27,20 @@ template<class T> class enable_shared_from_this
 {
 protected:
 
-    constexpr enable_shared_from_this() noexcept
+    BOOST_CONSTEXPR enable_shared_from_this() BOOST_SP_NOEXCEPT
     {
     }
 
-    constexpr enable_shared_from_this(enable_shared_from_this const &) noexcept
+    BOOST_CONSTEXPR enable_shared_from_this(enable_shared_from_this const &) BOOST_SP_NOEXCEPT
     {
     }
 
-    enable_shared_from_this & operator=(enable_shared_from_this const &) noexcept
+    enable_shared_from_this & operator=(enable_shared_from_this const &) BOOST_SP_NOEXCEPT
     {
         return *this;
     }
 
-    ~enable_shared_from_this() noexcept // ~weak_ptr<T> newer throws, so this call also must not throw
+    ~enable_shared_from_this() BOOST_SP_NOEXCEPT // ~weak_ptr<T> newer throws, so this call also must not throw
     {
     }
 
@@ -57,12 +60,12 @@ public:
         return p;
     }
 
-    weak_ptr<T> weak_from_this() noexcept
+    weak_ptr<T> weak_from_this() BOOST_SP_NOEXCEPT
     {
         return weak_this_;
     }
 
-    weak_ptr<T const> weak_from_this() const noexcept
+    weak_ptr<T const> weak_from_this() const BOOST_SP_NOEXCEPT
     {
         return weak_this_;
     }
@@ -70,7 +73,7 @@ public:
 public: // actually private, but avoids compiler template friendship issues
 
     // Note: invoked automatically by shared_ptr; do not call
-    template<class X, class Y> void _internal_accept_owner( shared_ptr<X> const * ppx, Y * py ) const noexcept
+    template<class X, class Y> void _internal_accept_owner( shared_ptr<X> const * ppx, Y * py ) const BOOST_SP_NOEXCEPT
     {
         if( weak_this_.expired() )
         {

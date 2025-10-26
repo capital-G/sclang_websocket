@@ -2,7 +2,7 @@
 // detail/impl/select_reactor.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2025 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2024 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -41,27 +41,23 @@ inline void select_reactor::post_immediate_completion(
   scheduler_.post_immediate_completion(op, is_continuation);
 }
 
-template <typename TimeTraits, typename Allocator>
-void select_reactor::add_timer_queue(
-    timer_queue<TimeTraits, Allocator>& queue)
+template <typename Time_Traits>
+void select_reactor::add_timer_queue(timer_queue<Time_Traits>& queue)
 {
   do_add_timer_queue(queue);
 }
 
 // Remove a timer queue from the reactor.
-template <typename TimeTraits, typename Allocator>
-void select_reactor::remove_timer_queue(
-    timer_queue<TimeTraits, Allocator>& queue)
+template <typename Time_Traits>
+void select_reactor::remove_timer_queue(timer_queue<Time_Traits>& queue)
 {
   do_remove_timer_queue(queue);
 }
 
-template <typename TimeTraits, typename Allocator>
-void select_reactor::schedule_timer(
-    timer_queue<TimeTraits, Allocator>& queue,
-    const typename TimeTraits::time_type& time,
-    typename timer_queue<TimeTraits, Allocator>::per_timer_data& timer,
-    wait_op* op)
+template <typename Time_Traits>
+void select_reactor::schedule_timer(timer_queue<Time_Traits>& queue,
+    const typename Time_Traits::time_type& time,
+    typename timer_queue<Time_Traits>::per_timer_data& timer, wait_op* op)
 {
   boost::asio::detail::mutex::scoped_lock lock(mutex_);
 
@@ -77,10 +73,9 @@ void select_reactor::schedule_timer(
     interrupter_.interrupt();
 }
 
-template <typename TimeTraits, typename Allocator>
-std::size_t select_reactor::cancel_timer(
-    timer_queue<TimeTraits, Allocator>& queue,
-    typename timer_queue<TimeTraits, Allocator>::per_timer_data& timer,
+template <typename Time_Traits>
+std::size_t select_reactor::cancel_timer(timer_queue<Time_Traits>& queue,
+    typename timer_queue<Time_Traits>::per_timer_data& timer,
     std::size_t max_cancelled)
 {
   boost::asio::detail::mutex::scoped_lock lock(mutex_);
@@ -91,10 +86,9 @@ std::size_t select_reactor::cancel_timer(
   return n;
 }
 
-template <typename TimeTraits, typename Allocator>
-void select_reactor::cancel_timer_by_key(
-    timer_queue<TimeTraits, Allocator>& queue,
-    typename timer_queue<TimeTraits, Allocator>::per_timer_data* timer,
+template <typename Time_Traits>
+void select_reactor::cancel_timer_by_key(timer_queue<Time_Traits>& queue,
+    typename timer_queue<Time_Traits>::per_timer_data* timer,
     void* cancellation_key)
 {
   mutex::scoped_lock lock(mutex_);
@@ -104,10 +98,10 @@ void select_reactor::cancel_timer_by_key(
   scheduler_.post_deferred_completions(ops);
 }
 
-template <typename TimeTraits, typename Allocator>
-void select_reactor::move_timer(timer_queue<TimeTraits, Allocator>& queue,
-    typename timer_queue<TimeTraits, Allocator>::per_timer_data& target,
-    typename timer_queue<TimeTraits, Allocator>::per_timer_data& source)
+template <typename Time_Traits>
+void select_reactor::move_timer(timer_queue<Time_Traits>& queue,
+    typename timer_queue<Time_Traits>::per_timer_data& target,
+    typename timer_queue<Time_Traits>::per_timer_data& source)
 {
   boost::asio::detail::mutex::scoped_lock lock(mutex_);
   op_queue<operation> ops;

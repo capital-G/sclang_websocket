@@ -36,7 +36,6 @@ using std::is_nothrow_invocable;
 
 #else
 
-#include <utility> // std::declval
 #include <boost/scope/detail/type_traits/is_invocable.hpp>
 
 namespace boost {

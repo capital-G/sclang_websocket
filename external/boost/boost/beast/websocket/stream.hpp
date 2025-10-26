@@ -38,25 +38,6 @@
 namespace boost {
 namespace beast {
 namespace websocket {
-/** permessage-deflate extension status.
-
-    These settings indicate the status of the permessage-deflate
-    extension, showing if it is active and the window bits in use.
-
-    Objects of this type are used with
-    @ref beast::websocket::stream::get_status.
-*/
-struct permessage_deflate_status
-{
-    /// `true` if the permessage-deflate extension is active
-    bool active = false;
-
-    /// The number of window bits used by the client
-    int client_window_bits = 0;
-
-    /// The number of window bits used by the server
-    int server_window_bits = 0;
-};
 
 /** The type of received control frame.
 
@@ -429,24 +410,6 @@ public:
     /// Get the permessage-deflate extension options
     void
     get_option(permessage_deflate& o);
-
-    /** Get the status of the permessage-deflate extension.
-
-        Used to check the status of the permessage-deflate extension after
-        the WebSocket handshake.
-
-        @param status A reference to a `permessage_deflate_status` object
-        where the status will be stored.
-
-        @par Example
-        Checking the status of the permessage-deflate extension:
-        @code
-            permessage_deflate_status status;
-            ws.get_status(status);
-        @endcode
-    */
-    void
-    get_status(permessage_deflate_status &status) const noexcept;
 
     /** Set the automatic fragmentation option.
 
@@ -1574,26 +1537,26 @@ public:
     //
     //--------------------------------------------------------------------------
 
-    /** Perform the WebSocket closing handshake and close the underlying stream.
+    /** Send a websocket close control frame.
 
-        This function sends a
-        <a href="https://tools.ietf.org/html/rfc6455#section-5.5.1">close frame</a>
-        to begin the WebSocket closing handshake and waits for a corresponding
-        close frame in response. Once received, it calls @ref teardown
-        to gracefully shut down the underlying stream.
-
-        After beginning the closing handshake, the program should not write
-        further message data, pings, or pongs. However, it can still read
-        incoming message data. A read returning @ref error::closed indicates a
-        successful connection closure.
+        This function is used to send a
+        <a href="https://tools.ietf.org/html/rfc6455#section-5.5.1">close frame</a>,
+        which begins the websocket closing handshake. The session ends when
+        both ends of the connection have sent and received a close frame.
 
         The call blocks until one of the following conditions is true:
 
-        @li The closing handshake completes, and @ref teardown finishes.
+        @li The close frame is written.
+
         @li An error occurs.
 
         The algorithm, known as a <em>composed operation</em>, is implemented
         in terms of calls to the next layer's `write_some` function.
+
+        After beginning the closing handshake, the program should not write
+        further message data, pings, or pongs. Instead, the program should
+        continue reading message data until an error occurs. A read returning
+        @ref error::closed indicates a successful connection closure.
 
         @param cr The reason for the close.
         If the close reason specifies a close code other than
@@ -1609,26 +1572,26 @@ public:
     void
     close(close_reason const& cr);
 
-    /** Perform the WebSocket closing handshake and close the underlying stream.
+    /** Send a websocket close control frame.
 
-        This function sends a
-        <a href="https://tools.ietf.org/html/rfc6455#section-5.5.1">close frame</a>
-        to begin the WebSocket closing handshake and waits for a corresponding
-        close frame in response. Once received, it calls @ref teardown
-        to gracefully shut down the underlying stream.
-
-        After beginning the closing handshake, the program should not write
-        further message data, pings, or pongs. However, it can still read
-        incoming message data. A read returning @ref error::closed indicates a
-        successful connection closure.
+        This function is used to send a
+        <a href="https://tools.ietf.org/html/rfc6455#section-5.5.1">close frame</a>,
+        which begins the websocket closing handshake. The session ends when
+        both ends of the connection have sent and received a close frame.
 
         The call blocks until one of the following conditions is true:
 
-        @li The closing handshake completes, and @ref teardown finishes.
+        @li The close frame is written.
+
         @li An error occurs.
 
         The algorithm, known as a <em>composed operation</em>, is implemented
         in terms of calls to the next layer's `write_some` function.
+
+        After beginning the closing handshake, the program should not write
+        further message data, pings, or pongs. Instead, the program should
+        continue reading message data until an error occurs. A read returning
+        @ref error::closed indicates a successful connection closure.
 
         @param cr The reason for the close.
         If the close reason specifies a close code other than
@@ -1644,33 +1607,29 @@ public:
     void
     close(close_reason const& cr, error_code& ec);
 
-    /** Perform the WebSocket closing handshake asynchronously and close
-        the underlying stream.
+    /** Send a websocket close control frame asynchronously.
 
-        This function sends a
-        <a href="https://tools.ietf.org/html/rfc6455#section-5.5.1">close frame</a>
-        to begin the WebSocket closing handshake and waits for a corresponding
-        close frame in response. Once received, it calls @ref async_teardown
-        to gracefully shut down the underlying stream asynchronously.
-
-        After beginning the closing handshake, the program should not write
-        further message data, pings, or pongs. However, it can still read
-        incoming message data. A read returning @ref error::closed indicates a
-        successful connection closure.
+        This function is used to asynchronously send a
+        <a href="https://tools.ietf.org/html/rfc6455#section-5.5.1">close frame</a>,
+        which begins the websocket closing handshake. The session ends when
+        both ends of the connection have sent and received a close frame.
 
         This call always returns immediately. The asynchronous operation
         will continue until one of the following conditions is true:
 
-        @li The closing handshake completes, and @ref async_teardown finishes.
-        @li An error occurs.
+        @li The close frame finishes sending.
 
-        If a timeout occurs, @ref close_socket will be called to close the
-        underlying stream.
+        @li An error occurs.
 
         The algorithm, known as a <em>composed asynchronous operation</em>,
         is implemented in terms of calls to the next layer's `async_write_some`
         function. No other operations except for message reading operations
         should be initiated on the stream after a close operation is started.
+
+        After beginning the closing handshake, the program should not write
+        further message data, pings, or pongs. Instead, the program should
+        continue reading message data until an error occurs. A read returning
+        @ref error::closed indicates a successful connection closure.
 
         @param cr The reason for the close.
         If the close reason specifies a close code other than
@@ -1708,7 +1667,7 @@ public:
 
         `terminal` cancellation succeeds when supported by the underlying stream.
 
-        @note `terminal` cancellation may close the underlying socket.
+        @note `terminal` cancellation will may close the underlying socket.
 
         @see
         @li <a href="https://tools.ietf.org/html/rfc6455#section-7.1.2">Websocket Closing Handshake (RFC6455)</a>
@@ -2281,8 +2240,6 @@ public:
         Received message data is appended to the buffer.
         The functions @ref got_binary and @ref got_text may be used
         to query the stream and determine the type of the last received message.
-        The function @ref is_message_done may be called to determine if the
-        message received by the last read operation is complete.
 
         Until the operation completes, the implementation will read incoming
         control frames and handle them automatically as follows:
@@ -2490,8 +2447,6 @@ public:
         Received message data is appended to the buffer.
         The functions @ref got_binary and @ref got_text may be used
         to query the stream and determine the type of the last received message.
-        The function @ref is_message_done may be called to determine if the
-        message received by the last read operation is complete.
 
         Until the operation completes, the implementation will read incoming
         control frames and handle them automatically as follows:

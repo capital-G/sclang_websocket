@@ -2,7 +2,7 @@
 // detail/wince_thread.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2025 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2024 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -19,7 +19,8 @@
 
 #if defined(BOOST_ASIO_WINDOWS) && defined(UNDER_CE)
 
-#include <boost/asio/detail/memory.hpp>
+#include <boost/asio/detail/noncopyable.hpp>
+#include <boost/asio/detail/scoped_ptr.hpp>
 #include <boost/asio/detail/socket_types.hpp>
 #include <boost/asio/detail/throw_error.hpp>
 #include <boost/asio/error.hpp>
@@ -33,62 +34,37 @@ namespace detail {
 DWORD WINAPI wince_thread_function(LPVOID arg);
 
 class wince_thread
+  : private noncopyable
 {
 public:
-  // Construct in a non-joinable state.
-  wince_thread() noexcept
-    : arg_(0)
-  {
-  }
-
   // Constructor.
   template <typename Function>
   wince_thread(Function f, unsigned int = 0)
-    : wince_thread(std::allocator_arg, std::allocator<void>(), f)
   {
-  }
-
-  // Construct with custom allocator.
-  template <typename Allocator, typename Function>
-  wince_thread(allocator_arg_t, const Allocator& a,
-      Function f, unsigned int = 0)
-    : arg_(start_thread(allocate_object<func<Function, Allocator>>(a, f, a)))
-  {
-  }
-
-  // Move constructor.
-  wince_thread(wince_thread&& other) noexcept
-    : arg_(other.arg_)
-  {
-    other.arg_ = 0;
+    scoped_ptr<func_base> arg(new func<Function>(f));
+    DWORD thread_id = 0;
+    thread_ = ::CreateThread(0, 0, wince_thread_function,
+        arg.get(), 0, &thread_id);
+    if (!thread_)
+    {
+      DWORD last_error = ::GetLastError();
+      boost::system::error_code ec(last_error,
+          boost::asio::error::get_system_category());
+      boost::asio::detail::throw_error(ec, "thread");
+    }
+    arg.release();
   }
 
   // Destructor.
   ~wince_thread()
   {
-    if (arg_)
-      std::terminate();
-  }
-
-  // Move assignment.
-  wince_thread& operator=(wince_thread&& other) noexcept
-  {
-    arg_ = other.arg_;
-    other.arg_ = 0;
-    return *this;
-  }
-
-  // Whether the thread can be joined.
-  bool joinable() const
-  {
-    return !!arg_;
+    ::CloseHandle(thread_);
   }
 
   // Wait for the thread to exit.
   void join()
   {
-    if (arg_)
-      ::WaitForSingleObject(arg_->thread_, INFINITE);
+    ::WaitForSingleObject(thread_, INFINITE);
   }
 
   // Get number of CPUs.
@@ -107,18 +83,15 @@ private:
   public:
     virtual ~func_base() {}
     virtual void run() = 0;
-    virtual void destroy() = 0;
-    ::HANDLE thread_;
   };
 
-  template <typename Function, typename Allocator>
+  template <typename Function>
   class func
     : public func_base
   {
   public:
-    func(Function f, const Allocator& a)
-      : f_(f),
-        allocator_(a)
+    func(Function f)
+      : f_(f)
     {
     }
 
@@ -127,38 +100,18 @@ private:
       f_();
     }
 
-    virtual void destroy()
-    {
-      deallocate_object(allocator_, this);
-    }
-
   private:
     Function f_;
-    Allocator allocator_;
   };
 
-  func_base* start_thread(func_base* arg)
-  {
-    DWORD thread_id = 0;
-    arg->thread_ = ::CreateThread(0, 0,
-        wince_thread_function, arg, 0, &thread_id);
-    if (!arg->thread_)
-    {
-      arg->destroy();
-      DWORD last_error = ::GetLastError();
-      boost::system::error_code ec(last_error,
-          boost::asio::error::get_system_category());
-      boost::asio::detail::throw_error(ec, "thread");
-    }
-    return arg;
-  }
-
-  func_base* arg_;
+  ::HANDLE thread_;
 };
 
 inline DWORD WINAPI wince_thread_function(LPVOID arg)
 {
-  static_cast<wince_thread::func_base*>(arg)->run();
+  scoped_ptr<wince_thread::func_base> func(
+      static_cast<wince_thread::func_base*>(arg));
+  func->run();
   return 0;
 }
 

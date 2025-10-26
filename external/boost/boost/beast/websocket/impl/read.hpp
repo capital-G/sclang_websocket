@@ -227,8 +227,6 @@ public:
                     // Handle ping frame
                     if(impl.rd_fh.op == detail::opcode::ping)
                     {
-                        impl.update_timer(this->get_executor());
-
                         if(impl.ctrl_cb)
                         {
                             if(! cont)
@@ -662,7 +660,6 @@ public:
             }
 
             impl.change_status(status::closing);
-            impl.update_timer(this->get_executor());
 
             if(! impl.wr_close)
             {

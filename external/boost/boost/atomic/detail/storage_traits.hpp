@@ -5,7 +5,7 @@
  *
  * Copyright (c) 2009 Helge Bahmann
  * Copyright (c) 2012 Tim Blechmann
- * Copyright (c) 2013-2025 Andrey Semashev
+ * Copyright (c) 2013 - 2020 Andrey Semashev
  */
 /*!
  * \file   atomic/detail/storage_traits.hpp
@@ -17,7 +17,7 @@
 #define BOOST_ATOMIC_DETAIL_STORAGE_TRAITS_HPP_INCLUDED_
 
 #include <cstddef>
-#include <cstdint>
+#include <boost/cstdint.hpp>
 #include <boost/atomic/detail/config.hpp>
 #include <boost/atomic/detail/string_ops.hpp>
 #include <boost/atomic/detail/aligned_variable.hpp>
@@ -33,7 +33,7 @@ namespace atomics {
 namespace detail {
 
 template< typename T >
-BOOST_FORCEINLINE void non_atomic_load(T const volatile& from, T& to) noexcept
+BOOST_FORCEINLINE void non_atomic_load(T const volatile& from, T& to) BOOST_NOEXCEPT
 {
     to = from;
 }
@@ -41,27 +41,27 @@ BOOST_FORCEINLINE void non_atomic_load(T const volatile& from, T& to) noexcept
 template< std::size_t Size, std::size_t Alignment = 1u >
 struct BOOST_ATOMIC_DETAIL_MAY_ALIAS buffer_storage
 {
-    using data_type = unsigned char [Size];
+    typedef unsigned char data_type[Size];
     BOOST_ATOMIC_DETAIL_ALIGNED_VAR_TPL(Alignment, data_type, data);
 
-    BOOST_FORCEINLINE bool operator! () const noexcept
+    BOOST_FORCEINLINE bool operator! () const BOOST_NOEXCEPT
     {
         return (data[0] == 0u && BOOST_ATOMIC_DETAIL_MEMCMP(data, data + 1, Size - 1u) == 0);
     }
 
-    BOOST_FORCEINLINE bool operator== (buffer_storage const& that) const noexcept
+    BOOST_FORCEINLINE bool operator== (buffer_storage const& that) const BOOST_NOEXCEPT
     {
         return BOOST_ATOMIC_DETAIL_MEMCMP(data, that.data, Size) == 0;
     }
 
-    BOOST_FORCEINLINE bool operator!= (buffer_storage const& that) const noexcept
+    BOOST_FORCEINLINE bool operator!= (buffer_storage const& that) const BOOST_NOEXCEPT
     {
         return BOOST_ATOMIC_DETAIL_MEMCMP(data, that.data, Size) != 0;
     }
 };
 
 template< std::size_t Size, std::size_t Alignment >
-BOOST_FORCEINLINE void non_atomic_load(buffer_storage< Size, Alignment > const volatile& from, buffer_storage< Size, Alignment >& to) noexcept
+BOOST_FORCEINLINE void non_atomic_load(buffer_storage< Size, Alignment > const volatile& from, buffer_storage< Size, Alignment >& to) BOOST_NOEXCEPT
 {
     BOOST_ATOMIC_DETAIL_MEMCPY(to.data, const_cast< unsigned char const* >(from.data), Size);
 }
@@ -69,48 +69,48 @@ BOOST_FORCEINLINE void non_atomic_load(buffer_storage< Size, Alignment > const v
 template< std::size_t Size >
 struct storage_traits
 {
-    using type = buffer_storage< Size, 1u >;
+    typedef buffer_storage< Size, 1u > type;
 
-    static constexpr std::size_t native_alignment = 1u;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t native_alignment = 1u;
 
     // By default, prefer the maximum supported alignment
-    static constexpr std::size_t alignment = 16u;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t alignment = 16u;
 };
 
 template< >
 struct storage_traits< 1u >
 {
-    using type = std::uint8_t BOOST_ATOMIC_DETAIL_MAY_ALIAS;
+    typedef boost::uint8_t BOOST_ATOMIC_DETAIL_MAY_ALIAS type;
 
-    static constexpr std::size_t native_alignment = 1u;
-    static constexpr std::size_t alignment = 1u;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t native_alignment = 1u;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t alignment = 1u;
 };
 
 template< >
 struct storage_traits< 2u >
 {
-    using type = std::uint16_t BOOST_ATOMIC_DETAIL_MAY_ALIAS;
+    typedef boost::uint16_t BOOST_ATOMIC_DETAIL_MAY_ALIAS type;
 
-    static constexpr std::size_t native_alignment = atomics::detail::alignment_of< std::uint16_t >::value;
-    static constexpr std::size_t alignment = 2u;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t native_alignment = atomics::detail::alignment_of< boost::uint16_t >::value;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t alignment = 2u;
 };
 
 template< >
 struct storage_traits< 4u >
 {
-    using type = std::uint32_t BOOST_ATOMIC_DETAIL_MAY_ALIAS;
+    typedef boost::uint32_t BOOST_ATOMIC_DETAIL_MAY_ALIAS type;
 
-    static constexpr std::size_t native_alignment = atomics::detail::alignment_of< std::uint32_t >::value;
-    static constexpr std::size_t alignment = 4u;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t native_alignment = atomics::detail::alignment_of< boost::uint32_t >::value;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t alignment = 4u;
 };
 
 template< >
 struct storage_traits< 8u >
 {
-    using type = std::uint64_t BOOST_ATOMIC_DETAIL_MAY_ALIAS;
+    typedef boost::uint64_t BOOST_ATOMIC_DETAIL_MAY_ALIAS type;
 
-    static constexpr std::size_t native_alignment = atomics::detail::alignment_of< std::uint64_t >::value;
-    static constexpr std::size_t alignment = 8u;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t native_alignment = atomics::detail::alignment_of< boost::uint64_t >::value;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t alignment = 8u;
 };
 
 #if defined(BOOST_HAS_INT128)
@@ -118,10 +118,10 @@ struct storage_traits< 8u >
 template< >
 struct storage_traits< 16u >
 {
-    using type = boost::uint128_type BOOST_ATOMIC_DETAIL_MAY_ALIAS;
+    typedef boost::uint128_type BOOST_ATOMIC_DETAIL_MAY_ALIAS type;
 
-    static constexpr std::size_t native_alignment = atomics::detail::alignment_of< boost::uint128_type >::value;
-    static constexpr std::size_t alignment = 16u;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t native_alignment = atomics::detail::alignment_of< boost::uint128_type >::value;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t alignment = 16u;
 };
 
 #else
@@ -163,10 +163,10 @@ union max_align_t
 template< >
 struct storage_traits< 16u >
 {
-    using type = buffer_storage< 16u, atomics::detail::alignment_of< atomics::detail::max_align_t >::value >;
+    typedef buffer_storage< 16u, atomics::detail::alignment_of< atomics::detail::max_align_t >::value > type;
 
-    static constexpr std::size_t native_alignment = atomics::detail::alignment_of< atomics::detail::max_align_t >::value;
-    static constexpr std::size_t alignment = 16u;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t native_alignment = atomics::detail::alignment_of< atomics::detail::max_align_t >::value;
+    static BOOST_CONSTEXPR_OR_CONST std::size_t alignment = 16u;
 };
 
 #endif
@@ -174,8 +174,8 @@ struct storage_traits< 16u >
 template< typename T >
 struct storage_size_of
 {
-    static constexpr std::size_t size = sizeof(T);
-    static constexpr std::size_t value = (size == 3u ? 4u : (size >= 5u && size <= 7u ? 8u : (size >= 9u && size <= 15u ? 16u : size)));
+    static BOOST_CONSTEXPR_OR_CONST std::size_t size = sizeof(T);
+    static BOOST_CONSTEXPR_OR_CONST std::size_t value = (size == 3u ? 4u : (size >= 5u && size <= 7u ? 8u : (size >= 9u && size <= 15u ? 16u : size)));
 };
 
 } // namespace detail

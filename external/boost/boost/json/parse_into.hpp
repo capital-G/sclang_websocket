@@ -15,23 +15,24 @@
 
 #include <boost/json/basic_parser.hpp>
 #include <boost/json/string_view.hpp>
+#include <boost/json/system_error.hpp>
 #include <boost/json/detail/parse_into.hpp>
 #include <boost/system/result.hpp>
 
 namespace boost {
 namespace json {
 
-/** @ref basic_parser that parses into a given type.
+/** `basic_parser` that parses into a given type
 
     This is an alias template for @ref basic_parser instantiations that use
     a dedicated handler that parses directly into an object provided by the
     user instead of creating a @ref value.
 
     Objects of type `parser_for<T>` have constructor signature equivalent to
-    `parser_for( parse_options const&, T* )`.
+    `parser_for( parse_options const&, T& )`.
 
     @tparam T the type to parse into. This type must be
-    {req_DefaultConstructible}.
+    [*DefaultConstructible*](https://en.cppreference.com/w/cpp/named_req/DefaultConstructible).
 */
 template< class T >
 using parser_for =
@@ -43,36 +44,33 @@ using parser_for =
 
 /** Parse a JSON text into a user-defined object.
 
-    This function parses a string and fills an object provided by the user.
-    If the buffer does not contain a complete serialized JSON text, an error
-    occurs. In this case `v` may be partially filled. Overloads
-    __(1)__--**(3)** consume the entire string `s`. Overloads **(4)**--**(6)**
-    read characters from the input stream `is`. All overloads consume all
-    available characters, and produce an error if there are non-whitespace
-    characters after the initial JSON.
+    This function parses an entire string in one step and fills an object
+    provided by the user. If the buffer does not contain a complete serialized
+    JSON text, an error occurs. In this case `v` may be partially filled.
 
     The function supports default constructible types satisfying
-    {req_SequenceContainer}, arrays, arithmetic types, `bool`, `std::tuple`,
-    `std::pair`, `std::optional`, `std::variant`, `std::nullptr_t`, and structs
-    and enums described using Boost.Describe.
+    <a href="https://en.cppreference.com/w/cpp/named_req/SequenceContainer"><em>SequenceContainer</em></a>,
+    arrays, arithmetic types, `bool`, `std::tuple`, `std::pair`,
+    `std::optional`, `std::nullptr_t`, and structs and enums described using
+    Boost.Describe.
 
     @par Complexity
-    @li **(1)**--**(3)** linear in `sv.size()`.
-    @li **(4)**--**(6)** linear in the size of consumed input.
+    Linear in `sv.size()`.
 
     @par Exception Safety
-    Basic guarantee. Calls to `memory_resource::allocate` may throw. Overloads
-    __(3)__ and **(6)** throw @ref boost::system::system_error on error.
-    The stream `is` may throw as described by @ref std::ios::exceptions.
+    Basic guarantee.
+    Calls to `memory_resource::allocate` may throw.
 
     @param v The type to parse into.
-    @param sv The string to parse.
-    @param ec Set to the error, if any occurred.
-    @param opt The options for the parser. If this parameter is omitted, the
-           parser will accept only standard JSON.
 
-    @{
+    @param sv The string to parse.
+
+    @param ec Set to the error, if any occurred.
+
+    @param opt The options for the parser. If this parameter
+    is omitted, the parser will accept only standard JSON.
 */
+/** @{ */
 template<class V>
 void
 parse_into(
@@ -88,8 +86,37 @@ parse_into(
     string_view sv,
     std::error_code& ec,
     parse_options const& opt = {} );
+/** @} */
 
-/// Overload
+/** Parse a JSON text into a user-defined object.
+
+    This function parses an entire string in one step and fills an object
+    provided by the user. If the buffer does not contain a complete serialized
+    JSON text, an exception is thrown. In this case `v` may be
+    partially filled.
+
+    The function supports default constructible types satisfying
+    <a href="https://en.cppreference.com/w/cpp/named_req/SequenceContainer"><em>SequenceContainer</em></a>,
+    arrays, arithmetic types, `bool`, `std::tuple`, `std::pair`,
+    `std::optional`, `std::nullptr_t`, and structs and enums described using
+    Boost.Describe.
+
+    @par Complexity
+    Linear in `sv.size()`.
+
+    @par Exception Safety
+    Basic guarantee.
+    Calls to `memory_resource::allocate` may throw.
+
+    @param v The type to parse into.
+
+    @param sv The string to parse.
+
+    @param opt The options for the parser. If this parameter
+    is omitted, the parser will accept only standard JSON.
+
+    @throw `boost::system::system_error` on failed parse.
+*/
 template<class V>
 void
 parse_into(
@@ -97,13 +124,38 @@ parse_into(
     string_view sv,
     parse_options const& opt = {} );
 
-/** Overload
+/** Parse a JSON text into a user-defined object.
+
+    This function reads data from an input stream and fills an object provided
+    by the user. If the buffer does not contain a complete serialized JSON
+    text, or contains extra non-whitespace data, an error occurs. In this case
+    `v` may be partially filled.
+
+    The function supports default constructible types satisfying
+    <a href="https://en.cppreference.com/w/cpp/named_req/SequenceContainer"><em>SequenceContainer</em></a>,
+    arrays, arithmetic types, `bool`, `std::tuple`, `std::pair`,
+    `std::optional`, `std::nullptr_t`, and structs and enums described using
+    Boost.Describe.
+
+    @par Complexity
+    Linear in the size of consumed input.
+
+    @par Exception Safety
+    Basic guarantee.
+    Calls to `memory_resource::allocate` may throw.
+    The stream may throw as described by
+    [`std::ios::exceptions`](https://en.cppreference.com/w/cpp/io/basic_ios/exceptions).
+
+    @param v The type to parse into.
 
     @param is The stream to read from.
-    @param v
-    @param ec
-    @param opt
+
+    @param ec Set to the error, if any occurred.
+
+    @param opt The options for the parser. If this parameter
+    is omitted, the parser will accept only standard JSON.
 */
+/** @{ */
 template<class V>
 void
 parse_into(
@@ -112,7 +164,6 @@ parse_into(
     system::error_code& ec,
     parse_options const& opt = {} );
 
-/// Overload
 template<class V>
 void
 parse_into(
@@ -120,15 +171,45 @@ parse_into(
     std::istream& is,
     std::error_code& ec,
     parse_options const& opt = {} );
+/** @} */
 
-/// Overload
+/** Parse a JSON text into a user-defined object.
+
+    This function reads data from an input stream and fills an object provided
+    by the user. If the buffer does not contain a complete serialized JSON
+    text, or contains extra non-whitespace data, an exception is thrown. In
+    this case `v` may be partially filled.
+
+    The function supports default constructible types satisfying
+    <a href="https://en.cppreference.com/w/cpp/named_req/SequenceContainer"><em>SequenceContainer</em></a>,
+    arrays, arithmetic types, `bool`, `std::tuple`, `std::pair`,
+    `std::optional`, `std::nullptr_t`, and structs and enums described using
+    Boost.Describe.
+
+    @par Complexity
+    Linear in the size of consumed input.
+
+    @par Exception Safety
+    Basic guarantee.
+    Calls to `memory_resource::allocate` may throw.
+    The stream may throw as described by
+    [`std::ios::exceptions`](https://en.cppreference.com/w/cpp/io/basic_ios/exceptions).
+
+    @param v The type to parse into.
+
+    @param is The stream to read from.
+
+    @param opt The options for the parser. If this parameter
+    is omitted, the parser will accept only standard JSON.
+
+    @throw `boost::system::system_error` on failed parse.
+*/
 template<class V>
 void
 parse_into(
     V& v,
     std::istream& is,
     parse_options const& opt = {} );
-/// @}
 
 } // namespace boost
 } // namespace json

@@ -2,7 +2,7 @@
 // detail/posix_thread.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2025 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2024 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -21,7 +21,7 @@
 
 #include <cstddef>
 #include <pthread.h>
-#include <boost/asio/detail/memory.hpp>
+#include <boost/asio/detail/noncopyable.hpp>
 
 #include <boost/asio/detail/push_options.hpp>
 
@@ -35,52 +35,19 @@ extern "C"
 }
 
 class posix_thread
+  : private noncopyable
 {
 public:
-  // Construct in a non-joinable state.
-  posix_thread() noexcept
-    : arg_(0)
-  {
-  }
-
   // Constructor.
   template <typename Function>
   posix_thread(Function f, unsigned int = 0)
-    : posix_thread(std::allocator_arg, std::allocator<void>(), f)
+    : joined_(false)
   {
-  }
-
-  // Construct with custom allocator.
-  template <typename Allocator, typename Function>
-  posix_thread(allocator_arg_t, const Allocator& a,
-      Function f, unsigned int = 0)
-    : arg_(start_thread(allocate_object<func<Function, Allocator>>(a, f, a)))
-  {
-  }
-
-  // Move constructor.
-  posix_thread(posix_thread&& other) noexcept
-    : arg_(other.arg_)
-  {
-    other.arg_ = 0;
+    start_thread(new func<Function>(f));
   }
 
   // Destructor.
   BOOST_ASIO_DECL ~posix_thread();
-
-  // Move assignment.
-  posix_thread& operator=(posix_thread&& other) noexcept
-  {
-    arg_ = other.arg_;
-    other.arg_ = 0;
-    return *this;
-  }
-
-  // Whether the thread can be joined.
-  bool joinable() const
-  {
-    return !!arg_;
-  }
 
   // Wait for the thread to exit.
   BOOST_ASIO_DECL void join();
@@ -96,18 +63,21 @@ private:
   public:
     virtual ~func_base() {}
     virtual void run() = 0;
-    virtual void destroy() = 0;
-    ::pthread_t thread_;
   };
 
-  template <typename Function, typename Allocator>
+  struct auto_func_base_ptr
+  {
+    func_base* ptr;
+    ~auto_func_base_ptr() { delete ptr; }
+  };
+
+  template <typename Function>
   class func
     : public func_base
   {
   public:
-    func(Function f, const Allocator& a)
-      : f_(f),
-        allocator_(a)
+    func(Function f)
+      : f_(f)
     {
     }
 
@@ -116,19 +86,14 @@ private:
       f_();
     }
 
-    virtual void destroy()
-    {
-      deallocate_object(allocator_, this);
-    }
-
   private:
     Function f_;
-    Allocator allocator_;
   };
 
-  BOOST_ASIO_DECL func_base* start_thread(func_base* arg);
+  BOOST_ASIO_DECL void start_thread(func_base* arg);
 
-  func_base* arg_;
+  ::pthread_t thread_;
+  bool joined_;
 };
 
 } // namespace detail

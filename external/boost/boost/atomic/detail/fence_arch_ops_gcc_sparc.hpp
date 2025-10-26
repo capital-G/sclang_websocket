@@ -3,7 +3,7 @@
  * (See accompanying file LICENSE_1_0.txt or copy at
  * http://www.boost.org/LICENSE_1_0.txt)
  *
- * Copyright (c) 2020-2025 Andrey Semashev
+ * Copyright (c) 2020 Andrey Semashev
  */
 /*!
  * \file   atomic/detail/fence_arch_ops_gcc_sparc.hpp
@@ -29,7 +29,7 @@ namespace detail {
 //! Fence operations for SPARC
 struct fence_arch_operations_gcc_sparc
 {
-    static BOOST_FORCEINLINE void thread_fence(memory_order order) noexcept
+    static BOOST_FORCEINLINE void thread_fence(memory_order order) BOOST_NOEXCEPT
     {
         switch (order)
         {
@@ -52,14 +52,14 @@ struct fence_arch_operations_gcc_sparc
         }
     }
 
-    static BOOST_FORCEINLINE void signal_fence(memory_order order) noexcept
+    static BOOST_FORCEINLINE void signal_fence(memory_order order) BOOST_NOEXCEPT
     {
         if (order != memory_order_relaxed)
             __asm__ __volatile__ ("" ::: "memory");
     }
 };
 
-using fence_arch_operations = fence_arch_operations_gcc_sparc;
+typedef fence_arch_operations_gcc_sparc fence_arch_operations;
 
 } // namespace detail
 } // namespace atomics

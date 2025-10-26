@@ -8,7 +8,6 @@ Distributed under the Boost Software License, Version 1.0.
 #ifndef BOOST_CORE_SPAN_HPP
 #define BOOST_CORE_SPAN_HPP
 
-#include <boost/core/detail/assert.hpp>
 #include <boost/core/data.hpp>
 #include <array>
 #include <iterator>
@@ -275,21 +274,17 @@ public:
     }
 
     constexpr span<T, dynamic_extent> first(size_type c) const {
-        return BOOST_CORE_DETAIL_ASSERT(c <= size()),
-            span<T, dynamic_extent>(s_.p, c);
+        return span<T, dynamic_extent>(s_.p, c);
     }
 
     constexpr span<T, dynamic_extent> last(size_type c) const {
-        return BOOST_CORE_DETAIL_ASSERT(c <= size()),
-            span<T, dynamic_extent>(s_.p + (s_.n - c), c);
+        return span<T, dynamic_extent>(s_.p + (s_.n - c), c);
     }
 
     constexpr span<T, dynamic_extent> subspan(size_type o,
         size_type c = dynamic_extent) const {
-        return BOOST_CORE_DETAIL_ASSERT(o <= size() &&
-                (c == dynamic_extent || c + o <= size())),
-            span<T, dynamic_extent>(s_.p + o,
-                c == dynamic_extent ? s_.n - o : c);
+        return span<T, dynamic_extent>(s_.p + o,
+            c == dynamic_extent ? s_.n - o : c);
     }
 
     constexpr size_type size() const noexcept {
@@ -305,15 +300,15 @@ public:
     }
 
     constexpr reference operator[](size_type i) const {
-        return BOOST_CORE_DETAIL_ASSERT(i < size()), s_.p[i];
+        return s_.p[i];
     }
 
     constexpr reference front() const {
-        return BOOST_CORE_DETAIL_ASSERT(!empty()), *s_.p;
+        return *s_.p;
     }
 
     constexpr reference back() const {
-        return BOOST_CORE_DETAIL_ASSERT(!empty()), s_.p[s_.n - 1];
+        return s_.p[s_.n - 1];
     }
 
     constexpr pointer data() const noexcept {

@@ -3,7 +3,7 @@
  * (See accompanying file LICENSE_1_0.txt or copy at
  * http://www.boost.org/LICENSE_1_0.txt)
  *
- * Copyright (c) 2020-2025 Andrey Semashev
+ * Copyright (c) 2020-2021 Andrey Semashev
  */
 /*!
  * \file   atomic/detail/classify.hpp
@@ -14,9 +14,10 @@
 #ifndef BOOST_ATOMIC_DETAIL_CLASSIFY_HPP_INCLUDED_
 #define BOOST_ATOMIC_DETAIL_CLASSIFY_HPP_INCLUDED_
 
-#include <type_traits>
 #include <boost/atomic/detail/config.hpp>
+#include <boost/atomic/detail/type_traits/is_enum.hpp>
 #include <boost/atomic/detail/type_traits/is_integral.hpp>
+#include <boost/atomic/detail/type_traits/is_function.hpp>
 #include <boost/atomic/detail/type_traits/is_floating_point.hpp>
 #include <boost/atomic/detail/header.hpp>
 
@@ -28,57 +29,57 @@ namespace boost {
 namespace atomics {
 namespace detail {
 
-template< typename T, bool IsFunction = std::is_function< T >::value >
+template< typename T, bool IsFunction = atomics::detail::is_function< T >::value >
 struct classify_pointer
 {
-    using type = void*;
+    typedef void* type;
 };
 
 template< typename T >
 struct classify_pointer< T, true >
 {
-    using type = void;
+    typedef void type;
 };
 
 template<
     typename T,
     bool IsInt = atomics::detail::is_integral< T >::value,
     bool IsFloat = atomics::detail::is_floating_point< T >::value,
-    bool IsEnum = std::is_enum< T >::value
+    bool IsEnum = atomics::detail::is_enum< T >::value
 >
 struct classify
 {
-    using type = void;
+    typedef void type;
 };
 
 template< typename T >
-struct classify< T, true, false, false > { using type = int; };
+struct classify< T, true, false, false > { typedef int type; };
 
 #if !defined(BOOST_ATOMIC_NO_FLOATING_POINT)
 template< typename T >
-struct classify< T, false, true, false > { using type = float; };
+struct classify< T, false, true, false > { typedef float type; };
 #endif
 
 template< typename T >
-struct classify< T, false, false, true > { using type = const int; };
+struct classify< T, false, false, true > { typedef const int type; };
 
 template< typename T >
-struct classify< T*, false, false, false > { using type = typename classify_pointer< T >::type; };
+struct classify< T*, false, false, false > { typedef typename classify_pointer< T >::type type; };
 
 template< >
-struct classify< void*, false, false, false > { using type = void; };
+struct classify< void*, false, false, false > { typedef void type; };
 
 template< >
-struct classify< const void*, false, false, false > { using type = void; };
+struct classify< const void*, false, false, false > { typedef void type; };
 
 template< >
-struct classify< volatile void*, false, false, false > { using type = void; };
+struct classify< volatile void*, false, false, false > { typedef void type; };
 
 template< >
-struct classify< const volatile void*, false, false, false > { using type = void; };
+struct classify< const volatile void*, false, false, false > { typedef void type; };
 
 template< typename T, typename U >
-struct classify< T U::*, false, false, false > { using type = void; };
+struct classify< T U::*, false, false, false > { typedef void type; };
 
 } // namespace detail
 } // namespace atomics

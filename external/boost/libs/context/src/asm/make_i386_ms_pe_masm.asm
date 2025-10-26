@@ -53,7 +53,7 @@ make_fcontext PROC BOOST_CONTEXT_EXPORT
     mov  [eax+014h], ecx
     ; second arg of make_fcontext() == size of context-stack
     mov  edx, [esp+08h]
-    ; negate stack size for LEA instruction (== subtraction)
+    ; negate stack size for LEA instruction (== substraction)
     neg  edx
     ; compute bottom address of context stack (limit)
     lea  ecx, [ecx+edx]

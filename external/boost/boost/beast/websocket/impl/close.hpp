@@ -178,6 +178,7 @@ public:
             }
 
             // Read until a receiving a close frame
+            // TODO There should be a timeout on this
             if(impl.rd_remain > 0)
                 goto read_payload;
             for(;;)

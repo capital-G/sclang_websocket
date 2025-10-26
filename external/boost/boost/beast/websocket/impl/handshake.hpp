@@ -80,8 +80,6 @@ public:
             *this, std::move(req)))
     {
         sp->reset(); // VFALCO I don't like this
-        if(res_p)
-            res_p->result(http::status::internal_server_error);
         (*this)({}, 0, false);
     }
 
@@ -344,6 +342,7 @@ async_handshake(
     detail::sec_ws_key_type key;
     auto req = impl_->build_request(
         key, host, target, &default_decorate_req);
+    res.result(http::status::internal_server_error);
     return net::async_initiate<
         HandshakeHandler,
         void(error_code)>(

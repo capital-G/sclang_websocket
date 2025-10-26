@@ -23,26 +23,29 @@ iequals(
     beast::string_view lhs,
     beast::string_view rhs)
 {
-    if(lhs.size() != rhs.size())
+    auto n = lhs.size();
+    if(rhs.size() != n)
         return false;
-    auto n  = lhs.size();
     auto p1 = lhs.data();
     auto p2 = rhs.data();
+    char a, b;
     // fast loop
     while(n--)
     {
-        if(*p1++ != *p2++)
+        a = *p1++;
+        b = *p2++;
+        if(a != b)
             goto slow;
     }
     return true;
 slow:
-    --p1;
-    --p2;
     do
     {
-        if( detail::ascii_tolower(*p1++) !=
-            detail::ascii_tolower(*p2++))
+        if( detail::ascii_tolower(a) !=
+            detail::ascii_tolower(b))
             return false;
+        a = *p1++;
+        b = *p2++;
     }
     while(n--);
     return true;

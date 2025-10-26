@@ -7,20 +7,22 @@
 # Official repository: https://github.com/boostorg/beast
 #
 
-add_executable (boost_beast_tests_ssl
+GroupSources (include/boost/beast beast)
+GroupSources (test/beast/ssl "/")
+
+add_executable (tests-beast-ssl
+    ${BOOST_BEAST_FILES}
     Jamfile
-    ssl_stream.cpp)
+    ssl_stream.cpp
+)
 
-source_group("" FILES
-    Jamfile
-    ssl_stream.cpp)
+target_link_libraries(tests-beast-ssl
+    lib-asio
+    lib-asio-ssl
+    lib-beast
+    lib-test
+    )
 
-target_link_libraries(boost_beast_tests_ssl
-    boost_beast_lib_asio_ssl
-    boost_beast_lib_test)
+set_property(TARGET tests-beast-ssl PROPERTY FOLDER "tests")
 
-set_target_properties(boost_beast_tests_ssl
-    PROPERTIES FOLDER "tests")
-
-add_test(NAME boost_beast_tests_ssl COMMAND boost_beast_tests_ssl)
-add_dependencies(tests boost_beast_tests_ssl)
+#build_individual_tests(tests-beast-ssl LIBS lib-asio lib-asio-ssl lib-beast lib-test)

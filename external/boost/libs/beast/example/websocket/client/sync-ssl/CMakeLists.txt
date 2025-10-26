@@ -1,6 +1,5 @@
 #
 # Copyright (c) 2016-2017 Vinnie Falco (vinnie dot falco at gmail dot com)
-# Copyright (c) 2024 Mohammad Nejati
 #
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -8,19 +7,25 @@
 # Official repository: https://github.com/boostorg/beast
 #
 
-add_executable(websocket-client-sync-ssl
-    Jamfile
-    websocket_client_sync_ssl.cpp)
+if (OPENSSL_FOUND)
+    GroupSources(include/boost/beast beast)
+    GroupSources(example/common common)
+    GroupSources(example/websocket/client/sync-ssl "/")
 
-source_group("" FILES
-    Jamfile
-    websocket_client_sync_ssl.cpp)
+    add_executable (websocket-client-sync-ssl
+        ${BOOST_BEAST_FILES}
+        ${PROJECT_SOURCE_DIR}/example/common/root_certificates.hpp
+        Jamfile
+        websocket_client_sync_ssl.cpp
+    )
 
-target_include_directories(websocket-client-sync-ssl
-    PRIVATE ${PROJECT_SOURCE_DIR})
+    set_property(TARGET websocket-client-sync-ssl PROPERTY FOLDER "example-websocket-client")
 
-target_link_libraries(websocket-client-sync-ssl
-    PRIVATE Boost::beast OpenSSL::SSL OpenSSL::Crypto)
+    target_link_libraries (websocket-client-sync-ssl
+        OpenSSL::SSL OpenSSL::Crypto
+        lib-asio
+        lib-asio-ssl
+        lib-beast
+        )
 
-set_target_properties(websocket-client-sync-ssl
-    PROPERTIES FOLDER "example-websocket-client")
+endif()

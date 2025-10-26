@@ -61,11 +61,13 @@ public:
 #define BOOST_BEAST_LOGIC_ERROR(s) \
     { \
         BOOST_THROW_EXCEPTION(std::logic_error((s))); \
+        BOOST_BEAST_UNREACHABLE(); \
     }
 
 #define BOOST_BEAST_LOGIC_ERROR_RETURN(s, v) \
     { \
         BOOST_THROW_EXCEPTION(std::logic_error((s))); \
+        return v; \
     }
 
 #else
@@ -91,6 +93,13 @@ struct buffers_cat_view_iterator_base
     struct past_end
     {
         char unused = 0; // make g++8 happy
+
+        net::mutable_buffer
+        operator*() const
+        {
+            BOOST_BEAST_LOGIC_ERROR_RETURN(
+                    "Dereferencing a one-past-the-end iterator", {});
+        }
 
         operator bool() const noexcept
         {
@@ -178,13 +187,6 @@ private:
         {
             BOOST_BEAST_LOGIC_ERROR_RETURN(
                 "Dereferencing a default-constructed iterator", {});
-        }
-
-        reference
-        operator()(mp11::mp_size_t<sizeof...(Bn)+1>)
-        {
-            BOOST_BEAST_LOGIC_ERROR_RETURN(
-                "Dereferencing a one-past-the-end iterator", {});
         }
 
         template<class I>

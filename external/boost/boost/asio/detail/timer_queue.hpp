@@ -2,7 +2,7 @@
 // detail/timer_queue.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2025 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2024 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -32,16 +32,16 @@ namespace boost {
 namespace asio {
 namespace detail {
 
-template <typename TimeTraits, typename Allocator>
+template <typename Time_Traits>
 class timer_queue
   : public timer_queue_base
 {
 public:
   // The time type.
-  typedef typename TimeTraits::time_type time_type;
+  typedef typename Time_Traits::time_type time_type;
 
   // The duration type.
-  typedef typename TimeTraits::duration_type duration_type;
+  typedef typename Time_Traits::duration_type duration_type;
 
   // Per-timer data.
   class per_timer_data
@@ -68,12 +68,10 @@ public:
   };
 
   // Constructor.
-  timer_queue(const Allocator& alloc, std::size_t heap_reserve)
+  timer_queue()
     : timers_(),
-      heap_(alloc)
+      heap_()
   {
-    if (heap_reserve > 0)
-      heap_.reserve(heap_reserve);
   }
 
   // Add a new timer to the queue. Returns true if this is the timer that is
@@ -127,8 +125,8 @@ public:
       return max_duration;
 
     return this->to_msec(
-        TimeTraits::to_posix_duration(
-          TimeTraits::subtract(heap_[0].time_, TimeTraits::now())),
+        Time_Traits::to_posix_duration(
+          Time_Traits::subtract(heap_[0].time_, Time_Traits::now())),
         max_duration);
   }
 
@@ -139,8 +137,8 @@ public:
       return max_duration;
 
     return this->to_usec(
-        TimeTraits::to_posix_duration(
-          TimeTraits::subtract(heap_[0].time_, TimeTraits::now())),
+        Time_Traits::to_posix_duration(
+          Time_Traits::subtract(heap_[0].time_, Time_Traits::now())),
         max_duration);
   }
 
@@ -149,8 +147,8 @@ public:
   {
     if (!heap_.empty())
     {
-      const time_type now = TimeTraits::now();
-      while (!heap_.empty() && !TimeTraits::less_than(now, heap_[0].time_))
+      const time_type now = Time_Traits::now();
+      while (!heap_.empty() && !Time_Traits::less_than(now, heap_[0].time_))
       {
         per_timer_data* timer = heap_[0].timer_;
         while (wait_op* op = timer->op_queue_.front())
@@ -254,7 +252,7 @@ private:
     while (index > 0)
     {
       std::size_t parent = (index - 1) / 2;
-      if (!TimeTraits::less_than(heap_[index].time_, heap_[parent].time_))
+      if (!Time_Traits::less_than(heap_[index].time_, heap_[parent].time_))
         break;
       swap_heap(index, parent);
       index = parent;
@@ -268,10 +266,10 @@ private:
     while (child < heap_.size())
     {
       std::size_t min_child = (child + 1 == heap_.size()
-          || TimeTraits::less_than(
+          || Time_Traits::less_than(
             heap_[child].time_, heap_[child + 1].time_))
         ? child : child + 1;
-      if (TimeTraits::less_than(heap_[index].time_, heap_[min_child].time_))
+      if (Time_Traits::less_than(heap_[index].time_, heap_[min_child].time_))
         break;
       swap_heap(index, min_child);
       index = min_child;
@@ -306,7 +304,7 @@ private:
         swap_heap(index, heap_.size() - 1);
         timer.heap_index_ = (std::numeric_limits<std::size_t>::max)();
         heap_.pop_back();
-        if (index > 0 && TimeTraits::less_than(
+        if (index > 0 && Time_Traits::less_than(
               heap_[index].time_, heap_[(index - 1) / 2].time_))
           up_heap(index);
         else
@@ -381,9 +379,7 @@ private:
   };
 
   // The heap of timers, with the earliest timer at the front.
-  std::vector<heap_entry,
-    typename std::allocator_traits<Allocator>::template
-      rebind_alloc<heap_entry>> heap_;
+  std::vector<heap_entry> heap_;
 };
 
 } // namespace detail

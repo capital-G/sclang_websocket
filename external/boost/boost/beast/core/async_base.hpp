@@ -14,6 +14,7 @@
 #include <boost/beast/core/detail/allocator.hpp>
 #include <boost/beast/core/detail/async_base.hpp>
 #include <boost/beast/core/detail/filtering_cancellation_slot.hpp>
+#include <boost/beast/core/detail/work_guard.hpp>
 #include <boost/asio/append.hpp>
 #include <boost/asio/associated_allocator.hpp>
 #include <boost/asio/associated_cancellation_slot.hpp>
@@ -21,7 +22,6 @@
 #include <boost/asio/associated_immediate_executor.hpp>
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/dispatch.hpp>
-#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/handler_continuation_hook.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/core/exchange.hpp>
@@ -177,8 +177,7 @@ template<
 >
 class async_base
 #if ! BOOST_BEAST_DOXYGEN
-    : public detail::with_immediate_executor_type<Handler>
-    , private boost::empty_value<Allocator>
+    : private boost::empty_value<Allocator>
 #endif
 {
     static_assert(
@@ -186,7 +185,7 @@ class async_base
         "Executor type requirements not met");
 
     Handler h_;
-    net::executor_work_guard<Executor1> wg1_;
+    detail::select_work_guard_t<Executor1> wg1_;
     net::cancellation_type act_{net::cancellation_type::terminal};
 public:
     /** The type of executor associated with this object.
@@ -194,7 +193,7 @@ public:
     If a class derived from @ref boost::beast::async_base is a completion
     handler, then the associated executor of the derived class will
     be this type.
-    */
+*/
     using executor_type =
 #if BOOST_BEAST_DOXYGEN
         __implementation_defined__;
@@ -202,7 +201,7 @@ public:
         typename
         net::associated_executor<
             Handler,
-            typename net::executor_work_guard<Executor1>::executor_type
+            typename detail::select_work_guard_t<Executor1>::executor_type
                 >::type;
 #endif
 
@@ -211,11 +210,18 @@ public:
     If a class derived from @ref boost::beast::async_base is a completion
     handler, then the associated immediage executor of the derived class will
     be this type.
-    */
-#if BOOST_BEAST_DOXYGEN
+*/
     using immediate_executor_type =
+#if BOOST_BEAST_DOXYGEN
         __implementation_defined__;
+#else
+        typename
+        net::associated_immediate_executor<
+            Handler,
+            typename detail::select_work_guard_t<Executor1>::executor_type
+                >::type;
 #endif
+
 
   private:
 
@@ -260,7 +266,7 @@ public:
         Handler_&& handler,
         Executor1 const& ex1)
         : h_(std::forward<Handler_>(handler))
-        , wg1_(ex1)
+        , wg1_(detail::make_work_guard(ex1))
     {
     }
 
@@ -327,9 +333,7 @@ public:
         handler, then the object returned from this function will be used
         as the associated immediate executor of the derived class.
     */
-    net::associated_immediate_executor_t<
-        Handler,
-        typename net::executor_work_guard<Executor1>::executor_type>
+    immediate_executor_type
     get_immediate_executor() const noexcept
     {
         return net::get_associated_immediate_executor(

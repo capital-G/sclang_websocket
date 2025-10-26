@@ -41,7 +41,6 @@ git submodule update --init --depth 20 --jobs 4 \
     libs/static_string \
     libs/system \
     libs/throw_exception \
-    libs/tokenizer \
     libs/type_traits \
     libs/utility \
     libs/winapi \
@@ -81,7 +80,6 @@ git submodule update --init --depth 20 --jobs 4 \
     libs/range \
     libs/ratio \
     libs/rational \
-    libs/regex \
     libs/thread \
     libs/tuple \
     libs/type_index \

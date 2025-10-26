@@ -3,56 +3,49 @@
 // accompanying file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 #ifndef ITERATOR_TRAITS_DWA200347_HPP
-#define ITERATOR_TRAITS_DWA200347_HPP
+# define ITERATOR_TRAITS_DWA200347_HPP
+
+# include <boost/detail/workaround.hpp>
 
 #include <iterator>
 
 namespace boost {
 namespace iterators {
 
-template< typename Iterator >
-using iterator_value_t = typename std::iterator_traits< Iterator >::value_type;
+// Macro for supporting old compilers, no longer needed but kept
+// for backwards compatibility (it was documented).
+#define BOOST_ITERATOR_CATEGORY iterator_category
 
-template< typename Iterator >
+
+template <class Iterator>
 struct iterator_value
 {
-    using type = iterator_value_t< Iterator >;
+    typedef typename std::iterator_traits<Iterator>::value_type type;
 };
 
-template< typename Iterator >
-using iterator_reference_t = typename std::iterator_traits< Iterator >::reference;
-
-template< typename Iterator >
+template <class Iterator>
 struct iterator_reference
 {
-    using type = iterator_reference_t< Iterator >;
+    typedef typename std::iterator_traits<Iterator>::reference type;
 };
 
-template< typename Iterator >
-using iterator_pointer_t = typename std::iterator_traits< Iterator >::pointer;
 
-template< typename Iterator >
+template <class Iterator>
 struct iterator_pointer
 {
-    using type = iterator_pointer_t< Iterator >;
+    typedef typename std::iterator_traits<Iterator>::pointer type;
 };
 
-template< typename Iterator >
-using iterator_difference_t = typename std::iterator_traits< Iterator >::difference_type;
-
-template< typename Iterator >
+template <class Iterator>
 struct iterator_difference
 {
-    using type = iterator_difference_t< Iterator >;
+    typedef typename std::iterator_traits<Iterator>::difference_type type;
 };
 
-template< typename Iterator >
-using iterator_category_t = typename std::iterator_traits< Iterator >::iterator_category;
-
-template< typename Iterator >
+template <class Iterator>
 struct iterator_category
 {
-    using type = iterator_category_t< Iterator >;
+    typedef typename std::iterator_traits<Iterator>::iterator_category type;
 };
 
 } // namespace iterators

@@ -2,7 +2,7 @@
 // detail/impl/winrt_timer_scheduler.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2025 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2024 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -25,27 +25,23 @@ namespace boost {
 namespace asio {
 namespace detail {
 
-template <typename TimeTraits, typename Allocator>
-void winrt_timer_scheduler::add_timer_queue(
-    timer_queue<TimeTraits, Allocator>& queue)
+template <typename Time_Traits>
+void winrt_timer_scheduler::add_timer_queue(timer_queue<Time_Traits>& queue)
 {
   do_add_timer_queue(queue);
 }
 
 // Remove a timer queue from the reactor.
-template <typename TimeTraits, typename Allocator>
-void winrt_timer_scheduler::remove_timer_queue(
-    timer_queue<TimeTraits, Allocator>& queue)
+template <typename Time_Traits>
+void winrt_timer_scheduler::remove_timer_queue(timer_queue<Time_Traits>& queue)
 {
   do_remove_timer_queue(queue);
 }
 
-template <typename TimeTraits, typename Allocator>
-void winrt_timer_scheduler::schedule_timer(
-    timer_queue<TimeTraits, Allocator>& queue,
-    const typename TimeTraits::time_type& time,
-    typename timer_queue<TimeTraits, Allocator>::per_timer_data& timer,
-    wait_op* op)
+template <typename Time_Traits>
+void winrt_timer_scheduler::schedule_timer(timer_queue<Time_Traits>& queue,
+    const typename Time_Traits::time_type& time,
+    typename timer_queue<Time_Traits>::per_timer_data& timer, wait_op* op)
 {
   boost::asio::detail::mutex::scoped_lock lock(mutex_);
 
@@ -61,10 +57,9 @@ void winrt_timer_scheduler::schedule_timer(
     event_.signal(lock);
 }
 
-template <typename TimeTraits, typename Allocator>
-std::size_t winrt_timer_scheduler::cancel_timer(
-    timer_queue<TimeTraits, Allocator>& queue,
-    typename timer_queue<TimeTraits, Allocator>::per_timer_data& timer,
+template <typename Time_Traits>
+std::size_t winrt_timer_scheduler::cancel_timer(timer_queue<Time_Traits>& queue,
+    typename timer_queue<Time_Traits>::per_timer_data& timer,
     std::size_t max_cancelled)
 {
   boost::asio::detail::mutex::scoped_lock lock(mutex_);
@@ -75,11 +70,10 @@ std::size_t winrt_timer_scheduler::cancel_timer(
   return n;
 }
 
-template <typename TimeTraits, typename Allocator>
-void winrt_timer_scheduler::move_timer(
-    timer_queue<TimeTraits, Allocator>& queue,
-    typename timer_queue<TimeTraits, Allocator>::per_timer_data& to,
-    typename timer_queue<TimeTraits, Allocator>::per_timer_data& from)
+template <typename Time_Traits>
+void winrt_timer_scheduler::move_timer(timer_queue<Time_Traits>& queue,
+    typename timer_queue<Time_Traits>::per_timer_data& to,
+    typename timer_queue<Time_Traits>::per_timer_data& from)
 {
   boost::asio::detail::mutex::scoped_lock lock(mutex_);
   op_queue<operation> ops;

@@ -25,7 +25,6 @@
 #include <boost/assert.hpp>
 #include <boost/system/error_category.hpp>
 #include <boost/iterator/is_iterator.hpp>
-#include <boost/filesystem/detail/type_traits/negation.hpp>
 #include <boost/filesystem/detail/type_traits/conjunction.hpp>
 #if defined(BOOST_FILESYSTEM_DETAIL_CXX23_STRING_VIEW_HAS_IMPLICIT_RANGE_CTOR)
 #include <boost/filesystem/detail/type_traits/disjunction.hpp>
@@ -49,7 +48,6 @@ namespace filesystem {
 
 BOOST_FILESYSTEM_DECL system::error_category const& codecvt_error_category() noexcept;
 
-class path;
 class directory_entry;
 
 namespace detail {
@@ -503,30 +501,12 @@ no_type check_convertible(...);
 
 } // namespace is_convertible_to_path_source_impl
 
-template< typename T >
-struct check_is_convertible_to_path_source :
-    public std::integral_constant<
-        bool,
-        sizeof(is_convertible_to_path_source_impl::check_convertible(std::declval< T const& >())) == sizeof(yes_type)
-    >
-{
-};
-
-/*!
- * \brief The type trait indicates whether the type has a conversion path to one of the path source types.
- *
- * \note The type trait returns `false` if the type is convertible to `path`. This prevents testing other
- *       conversion paths and forces the conversion to `path` to be chosen instead, to invoke a non-template
- *       member of `path` accepting a `path` argument.
- */
+//! The type trait indicates whether the type has a conversion path to one of the path source types
 template< typename T >
 struct is_convertible_to_path_source :
     public std::integral_constant<
         bool,
-        detail::conjunction<
-            detail::negation< std::is_convertible< T, path > >,
-            check_is_convertible_to_path_source< T >
-        >::value
+        sizeof(is_convertible_to_path_source_impl::check_convertible(std::declval< T const& >())) == sizeof(yes_type)
     >
 {
 };
@@ -549,7 +529,7 @@ no_type check_convertible(...);
 } // namespace is_convertible_to_std_string_view_impl
 
 template< typename T >
-struct check_is_convertible_to_std_string_view :
+struct is_convertible_to_std_string_view :
     public std::integral_constant<
         bool,
         sizeof(is_convertible_to_std_string_view_impl::check_convertible(std::declval< T const& >())) == sizeof(yes_type)
@@ -573,7 +553,7 @@ no_type check_convertible(...);
 } // namespace is_convertible_to_path_source_non_std_string_view_impl
 
 template< typename T >
-struct check_is_convertible_to_path_source_non_std_string_view :
+struct is_convertible_to_path_source_non_std_string_view :
     public std::integral_constant<
         bool,
         sizeof(is_convertible_to_path_source_non_std_string_view_impl::check_convertible(std::declval< T const& >())) == sizeof(yes_type)
@@ -581,23 +561,14 @@ struct check_is_convertible_to_path_source_non_std_string_view :
 {
 };
 
-/*!
- * \brief The type trait indicates whether the type has a conversion path to one of the path source types.
- *
- * \note The type trait returns `false` if the type is convertible to `path`. This prevents testing other
- *       conversion paths and forces the conversion to `path` to be chosen instead, to invoke a non-template
- *       member of `path` accepting a `path` argument.
- */
+//! The type trait indicates whether the type has a conversion path to one of the path source types
 template< typename T >
 struct is_convertible_to_path_source :
     public std::integral_constant<
         bool,
-        detail::conjunction<
-            detail::negation< std::is_convertible< T, path > >,
-            detail::disjunction<
-                check_is_convertible_to_std_string_view< T >,
-                check_is_convertible_to_path_source_non_std_string_view< T >
-            >
+        detail::disjunction<
+            is_convertible_to_std_string_view< T >,
+            is_convertible_to_path_source_non_std_string_view< T >
         >::value
     >
 {
@@ -733,7 +704,7 @@ BOOST_FORCEINLINE typename Callback::result_type dispatch_convertible_sv_impl(st
 
 template< typename Source, typename Callback >
 BOOST_FORCEINLINE typename std::enable_if<
-    !check_is_convertible_to_std_string_view< typename std::remove_cv< Source >::type >::value,
+    !is_convertible_to_std_string_view< typename std::remove_cv< Source >::type >::value,
     typename Callback::result_type
 >::type dispatch_convertible(Source const& source, Callback cb, const codecvt_type* cvt = nullptr)
 {
@@ -743,7 +714,7 @@ BOOST_FORCEINLINE typename std::enable_if<
 
 template< typename Source, typename Callback >
 BOOST_FORCEINLINE typename std::enable_if<
-    check_is_convertible_to_std_string_view< typename std::remove_cv< Source >::type >::value,
+    is_convertible_to_std_string_view< typename std::remove_cv< Source >::type >::value,
     typename Callback::result_type
 >::type dispatch_convertible(Source const& source, Callback cb, const codecvt_type* cvt = nullptr)
 {

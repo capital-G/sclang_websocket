@@ -16,6 +16,7 @@
 //
 
 #include <boost/smart_ptr/detail/yield_k.hpp>
+#include <boost/config.hpp>
 #include <atomic>
 
 #if defined(BOOST_SP_REPORT_IMPLEMENTATION)
@@ -39,12 +40,12 @@ public:
 
 public:
 
-    bool try_lock() noexcept
+    bool try_lock() BOOST_NOEXCEPT
     {
         return !v_.test_and_set( std::memory_order_acquire );
     }
 
-    void lock() noexcept
+    void lock() BOOST_NOEXCEPT
     {
         for( unsigned k = 0; !try_lock(); ++k )
         {
@@ -52,7 +53,7 @@ public:
         }
     }
 
-    void unlock() noexcept
+    void unlock() BOOST_NOEXCEPT
     {
         v_ .clear( std::memory_order_release );
     }
@@ -70,12 +71,12 @@ public:
 
     public:
 
-        explicit scoped_lock( spinlock & sp ) noexcept: sp_( sp )
+        explicit scoped_lock( spinlock & sp ) BOOST_NOEXCEPT: sp_( sp )
         {
             sp.lock();
         }
 
-        ~scoped_lock() /*noexcept*/
+        ~scoped_lock() /*BOOST_NOEXCEPT*/
         {
             sp_.unlock();
         }

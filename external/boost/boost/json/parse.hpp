@@ -23,95 +23,190 @@ namespace json {
 
 /** Return parsed JSON as a @ref value.
 
-    This function parses input in one step to produce a complete JSON @ref
-    value. If the input does not contain a complete serialized JSON, an error
-    occurs. In this case **(1)**, **(2)**, **(4)**, and **(5)** return a null
-    value that uses the
-    \<\<default_memory_resource,default memory resource\>\>, and set `ec` to
-    the corresponding error value. **(3)** and **(6)** throw an exception.
+    This function parses an entire string in one
+    step to produce a complete JSON object, returned
+    as a @ref value. If the buffer does not contain a
+    complete serialized JSON, an error occurs. In this
+    case the returned value will be null, using the
+    [default memory resource].
 
     @par Complexity
-    @li **(1)**, **(2)**, **(3)** linear in `s.size()`.
-    @li **(4)**, **(5)**, **(6)** linear in the size of consumed input.
+    Linear in `s.size()`.
 
     @par Exception Safety
-    @li **(1)**, **(2)**, **(3)** strong guarantee.
-    @li **(4)**, **(5)**, **(6)** basic guarantee.
-
-    __(3)__, **(6)** throw `boost::system::system_error` on failed parse.
+    Strong guarantee.
     Calls to `memory_resource::allocate` may throw.
-    The stream `is` may throw as described by @ref std::ios::exceptions.
 
-    @return A value representing the parsed JSON.
+    @return A value representing the parsed JSON,
+    or a null if any error occurred.
 
     @param s The string to parse.
 
     @param ec Set to the error, if any occurred.
+
+    @param sp The memory resource that the new value and all
+    of its elements will use. If this parameter is omitted,
+    the [default memory resource] is used.
+
+    @param opt The options for the parser. If this parameter
+    is omitted, the parser will accept only standard JSON.
+
+    @see
+        @ref parse_options,
+        @ref stream_parser.
+
+    [default memory resource]: json/allocators/storage_ptr.html#json.allocators.storage_ptr.default_memory_resource
+*/
+/** @{ */
+BOOST_JSON_DECL
+value
+parse(
+    string_view s,
+    system::error_code& ec,
+    storage_ptr sp = {},
+    parse_options const& opt = {});
+
+BOOST_JSON_DECL
+value
+parse(
+    string_view s,
+    std::error_code& ec,
+    storage_ptr sp = {},
+    parse_options const& opt = {});
+/** @} */
+
+/** Return parsed JSON as a @ref value.
+
+    This function parses an entire string in one
+    step to produce a complete JSON object, returned
+    as a @ref value. If the buffer does not contain a
+    complete serialized JSON, an exception is thrown.
+
+    @par Complexity
+    Linear in `s.size()`.
+
+    @par Exception Safety
+    Strong guarantee.
+    Calls to `memory_resource::allocate` may throw.
+
+    @return A value representing the parsed
+    JSON upon success.
+
+    @param s The string to parse.
+
+    @param sp The memory resource that the new value and all
+    of its elements will use. If this parameter is omitted,
+    the [default memory resource] is used.
+
+    @param opt The options for the parser. If this parameter
+    is omitted, the parser will accept only standard JSON.
+
+    @throw boost::system::system_error Thrown on failure.
+
+    @see
+        @ref parse_options,
+        @ref stream_parser.
+
+    [default memory resource]: json/allocators/storage_ptr.html#json.allocators.storage_ptr.default_memory_resource
+*/
+BOOST_JSON_DECL
+value
+parse(
+    string_view s,
+    storage_ptr sp = {},
+    parse_options const& opt = {});
+
+/** Return parsed JSON as a @ref value.
+
+    This function reads data from an input stream and parses it to produce a
+    complete JSON entity, returned as a @ref value. If the stream does not
+    contain a complete serialized JSON, or contains extra non-whitespace data,
+    an error occurs. In this case the returned value will be `null`, using the
+    [default memory resource].
+
+    @par Complexity
+    Linear in the size of consumed input.
+
+    @par Exception Safety
+    Basic guarantee.
+    Calls to `memory_resource::allocate` may throw.
+    The stream may throw as described by
+    [`std::ios::exceptions`](https://en.cppreference.com/w/cpp/io/basic_ios/exceptions).
+
+    @return A value representing the parsed JSON,
+    or a `null` if any error occurred.
+
+    @param is The stream to read from.
+
+    @param ec Set to the error, if any occurred.
+
     @param sp The memory resource that the new value and all of its elements
-           will use.
+    will use. If this parameter is omitted, the [default memory resource]
+    is used.
+
     @param opt The options for the parser. If this parameter is omitted, the
-           parser will accept only standard JSON.
+    parser will accept only standard JSON.
 
     @see @ref parse_options, @ref stream_parser, @ref value::operator>>.
 
-    @{
+    [default memory resource]: json/allocators/storage_ptr.html#json.allocators.storage_ptr.default_memory_resource
 */
+/** @{ */
 BOOST_JSON_DECL
 value
 parse(
-    string_view s,
+    std::istream& is,
     system::error_code& ec,
     storage_ptr sp = {},
     parse_options const& opt = {});
 
-/// Overload
 BOOST_JSON_DECL
 value
 parse(
-    string_view s,
+    std::istream& is,
     std::error_code& ec,
     storage_ptr sp = {},
     parse_options const& opt = {});
+/** @} */
 
-/// Overload
-BOOST_JSON_DECL
-value
-parse(
-    string_view s,
-    storage_ptr sp = {},
-    parse_options const& opt = {});
+/** Return parsed JSON as a @ref value.
 
-/** Overload
+    This function reads data from an input stream and parses it to produce a
+    complete JSON entity, returned as a @ref value. If the stream does not
+    contain a complete serialized JSON, or contains extra non-whitespace data,
+    an exception is thrown.
+
+    @par Complexity
+    Linear in the size of consumed input.
+
+    @par Exception Safety
+    Basic guarantee.
+    Throws `boost::system::system_error` on failed parse.
+    Calls to `memory_resource::allocate` may throw.
+    The stream may throw as described by
+    [`std::ios::exceptions`](https://en.cppreference.com/w/cpp/io/basic_ios/exceptions).
+
+    @return A value representing the parsed JSON upon success.
+
     @param is The stream to read from.
-    @param ec
-    @param sp
-    @param opt
+
+    @param sp The memory resource that the new value and all of its elements
+    will use. If this parameter is omitted, the [default memory resource]
+    is used.
+
+    @param opt The options for the parser. If this parameter is omitted, the
+    parser will accept only standard JSON.
+
+    @see @ref parse_options, @ref stream_parser, @ref value::operator>>.
+
+    [default memory resource]: json/allocators/storage_ptr.html#json.allocators.storage_ptr.default_memory_resource
 */
 BOOST_JSON_DECL
 value
 parse(
     std::istream& is,
-    system::error_code& ec,
     storage_ptr sp = {},
     parse_options const& opt = {});
-
-/// Overload
-BOOST_JSON_DECL
-value
-parse(
-    std::istream& is,
-    std::error_code& ec,
-    storage_ptr sp = {},
-    parse_options const& opt = {});
-
-/// Overload
-BOOST_JSON_DECL
-value
-parse(
-    std::istream& is,
-    storage_ptr sp = {},
-    parse_options const& opt = {});
-/// @}
 
 } // namespace json
 } // namespace boost

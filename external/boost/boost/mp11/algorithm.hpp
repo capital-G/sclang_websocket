@@ -348,21 +348,16 @@ template<class L, class N> using mp_drop = mp_drop_c<L, std::size_t{ N::value }>
 namespace detail
 {
 
-template<class S, class F, bool Z> struct mp_from_sequence_impl;
+template<class S, class F> struct mp_from_sequence_impl;
 
-template<template<class T, T... I> class S, class U, U... J, class F> struct mp_from_sequence_impl<S<U, J...>, F, false>
+template<template<class T, T... I> class S, class U, U... J, class F> struct mp_from_sequence_impl<S<U, J...>, F>
 {
     using type = mp_list_c<U, (F::value + J)...>;
 };
 
-template<template<class T, T... I> class S, class U, U... J, class F> struct mp_from_sequence_impl<S<U, J...>, F, true>
-{
-    using type = mp_list_c<U, J...>;
-};
-
 } // namespace detail
 
-template<class S, class F = mp_int<0>> using mp_from_sequence = typename detail::mp_from_sequence_impl<S, F, (F::value == 0)>::type;
+template<class S, class F = mp_int<0>> using mp_from_sequence = typename detail::mp_from_sequence_impl<S, F>::type;
 
 // mp_iota(_c)<N, F>
 template<std::size_t N, std::size_t F = 0> using mp_iota_c = mp_from_sequence<make_index_sequence<N>, mp_size_t<F>>;
@@ -724,7 +719,37 @@ namespace detail
 
 template<class L, class V> struct mp_find_impl;
 
-#if !defined( BOOST_MP11_NO_CONSTEXPR )
+#if BOOST_MP11_CLANG && defined( BOOST_MP11_HAS_FOLD_EXPRESSIONS )
+
+struct mp_index_holder
+{
+    std::size_t i_;
+    bool f_;
+};
+
+constexpr inline mp_index_holder operator+( mp_index_holder const & v, bool f )
+{
+    if( v.f_ )
+    {
+        return v;
+    }
+    else if( f )
+    {
+        return { v.i_, true };
+    }
+    else
+    {
+        return { v.i_ + 1, false };
+    }
+}
+
+template<template<class...> class L, class... T, class V> struct mp_find_impl<L<T...>, V>
+{
+    static constexpr mp_index_holder _v{ 0, false };
+    using type = mp_size_t< (_v + ... + std::is_same<T, V>::value).i_ >;
+};
+
+#elif !defined( BOOST_MP11_NO_CONSTEXPR )
 
 template<template<class...> class L, class V> struct mp_find_impl<L<>, V>
 {
@@ -803,7 +828,15 @@ namespace detail
 
 template<class L, template<class...> class P> struct mp_find_if_impl;
 
-#if !defined( BOOST_MP11_NO_CONSTEXPR )
+#if BOOST_MP11_CLANG && defined( BOOST_MP11_HAS_FOLD_EXPRESSIONS )
+
+template<template<class...> class L, class... T, template<class...> class P> struct mp_find_if_impl<L<T...>, P>
+{
+    static constexpr mp_index_holder _v{ 0, false };
+    using type = mp_size_t< (_v + ... + P<T>::value).i_ >;
+};
+
+#elif !defined( BOOST_MP11_NO_CONSTEXPR )
 
 template<template<class...> class L, template<class...> class P> struct mp_find_if_impl<L<>, P>
 {

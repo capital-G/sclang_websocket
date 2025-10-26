@@ -1,6 +1,5 @@
 #
 # Copyright (c) 2016-2017 Vinnie Falco (vinnie dot falco at gmail dot com)
-# Copyright (c) 2024 Mohammad Nejati
 #
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -8,19 +7,25 @@
 # Official repository: https://github.com/boostorg/beast
 #
 
-add_executable(http-server-stackless-ssl
-    Jamfile
-    http_server_stackless_ssl.cpp)
+if (OPENSSL_FOUND)
+    GroupSources(include/boost/beast beast)
+    GroupSources(example/common common)
+    GroupSources(example/http/server/stackless-ssl "/")
 
-source_group("" FILES
-    Jamfile
-    http_server_stackless_ssl.cpp)
+    add_executable (http-server-stackless-ssl
+        ${BOOST_BEAST_FILES}
+        ${PROJECT_SOURCE_DIR}/example/common/server_certificate.hpp
+        Jamfile
+        http_server_stackless_ssl.cpp
+    )
 
-target_include_directories(http-server-stackless-ssl
-    PRIVATE ${PROJECT_SOURCE_DIR})
+    set_property(TARGET http-server-stackless-ssl PROPERTY FOLDER "example-http-server")
 
-target_link_libraries(http-server-stackless-ssl
-    PRIVATE Boost::beast OpenSSL::SSL OpenSSL::Crypto)
+    target_link_libraries (http-server-stackless-ssl
+        OpenSSL::SSL OpenSSL::Crypto
+        lib-asio
+        lib-asio-ssl
+        lib-beast
+        )
 
-set_target_properties(http-server-stackless-ssl
-    PROPERTIES FOLDER "example-http-server")
+endif()

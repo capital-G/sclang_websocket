@@ -2,7 +2,7 @@
 // basic_io_object.hpp
 // ~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2025 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2024 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -16,10 +16,6 @@
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
 #include <boost/asio/detail/config.hpp>
-
-#if !defined(BOOST_ASIO_NO_DEPRECATED) \
-  || defined(GENERATING_DOCUMENTATION)
-
 #include <boost/asio/io_context.hpp>
 
 #include <boost/asio/detail/push_options.hpp>
@@ -50,7 +46,7 @@ namespace detail
   };
 }
 
-/// (Deprecated) Base class for all I/O objects.
+/// Base class for all I/O objects.
 /**
  * @note All I/O objects are non-copyable. However, when using C++0x, certain
  * I/O objects do support move construction and move assignment.
@@ -70,7 +66,9 @@ public:
   /// The underlying implementation type of I/O object.
   typedef typename service_type::implementation_type implementation_type;
 
-  /// Get the io_context associated with the object.
+#if !defined(BOOST_ASIO_NO_DEPRECATED)
+  /// (Deprecated: Use get_executor().) Get the io_context associated with the
+  /// object.
   /**
    * This function may be used to obtain the io_context object that the I/O
    * object uses to dispatch handlers for asynchronous operations.
@@ -83,7 +81,8 @@ public:
     return service_.get_io_context();
   }
 
-  /// Get the io_context associated with the object.
+  /// (Deprecated: Use get_executor().) Get the io_context associated with the
+  /// object.
   /**
    * This function may be used to obtain the io_context object that the I/O
    * object uses to dispatch handlers for asynchronous operations.
@@ -95,6 +94,7 @@ public:
   {
     return service_.get_io_context();
   }
+#endif // !defined(BOOST_ASIO_NO_DEPRECATED)
 
   /// The type of the executor associated with the object.
   typedef boost::asio::io_context::executor_type executor_type;
@@ -197,6 +197,7 @@ public:
   typedef IoObjectService service_type;
   typedef typename service_type::implementation_type implementation_type;
 
+#if !defined(BOOST_ASIO_NO_DEPRECATED)
   boost::asio::io_context& get_io_context()
   {
     return service_->get_io_context();
@@ -206,6 +207,7 @@ public:
   {
     return service_->get_io_context();
   }
+#endif // !defined(BOOST_ASIO_NO_DEPRECATED)
 
   typedef boost::asio::io_context::executor_type executor_type;
 
@@ -282,8 +284,5 @@ private:
 } // namespace boost
 
 #include <boost/asio/detail/pop_options.hpp>
-
-#endif // !defined(BOOST_ASIO_NO_DEPRECATED)
-       //   || defined(GENERATING_DOCUMENTATION)
 
 #endif // BOOST_ASIO_BASIC_IO_OBJECT_HPP
