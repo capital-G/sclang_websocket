@@ -11,6 +11,7 @@ from websockets.asyncio.server import serve
 
 async def hello(websocket):
     print("Hello from python websocket server!")
+    await websocket.send("Hello from python")
     name = await websocket.recv()
     print(f"<<< {name}")
 

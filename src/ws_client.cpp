@@ -11,17 +11,26 @@ namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
 
 
-WebSocketClient::WebSocketClient(boost::asio::io_context& ioContext):
+WebSocketClient::WebSocketClient(boost::asio::io_context& ioContext, std::string host, int port):
+    mHost(host),
+    mPort(port),
     mIoContext(ioContext),
     mResolver(boost::asio::make_strand(mIoContext)),
-    mWs(boost::asio::make_strand(mIoContext)) {
+    mWs(boost::asio::make_strand(mIoContext))
+{
     std::cout << "ioContext address = " << &ioContext << std::endl;
 }
 
-void WebSocketClient::run(const std::string& host_, std::string& port) {
-    mHost = host_;
-
-    mResolver.async_resolve(mHost, port, beast::bind_front_handler(&WebSocketClient::onResolve, shared_from_this()));
+void WebSocketClient::connect() {
+    if (mSclangConnectionChangeCallback == nullptr || mSclangOnMessageCallback == nullptr) {
+        std::cerr << "Provide a connection change and message callback for WebSocket client before connecting!" << std::endl;
+        return;
+    }
+    mResolver.async_resolve(
+        mHost,
+        std::to_string(mPort),
+        beast::bind_front_handler(&WebSocketClient::onResolve, shared_from_this())
+    );
 }
 
 beast::error_code WebSocketClient::closeConnection() {
@@ -72,7 +81,7 @@ void WebSocketClient::onHandshake(beast::error_code ec) {
         std::cout << "Could not handshake: " << ec.message().c_str() << std::endl;
     }
     mConnected = true;
-    // SC_Websocket_Lang::WebSocketClient::setConnectionStatus(m_self, true);
+    mSclangConnectionChangeCallback(true);
     doRead();
 }
 
@@ -83,7 +92,7 @@ void WebSocketClient::doRead() {
 void WebSocketClient::onRead(beast::error_code ec, std::size_t bytesTransferred) {
     if (ec) {
         mConnected = false;
-        // SC_Websocket_Lang::WebSocketClient::setConnectionStatus(m_self, false);
+        mSclangConnectionChangeCallback(false);
         if (ec == boost::system::errc::operation_canceled || ec == boost::asio::error::eof) {
             return;
         }
@@ -92,8 +101,7 @@ void WebSocketClient::onRead(beast::error_code ec, std::size_t bytesTransferred)
     };
 
     auto message = convertData(mBuffer, bytesTransferred, mWs.got_text());
-
-    // SC_Websocket_Lang::WebSocketClient::receivedMessage(m_self, message);
+    mSclangOnMessageCallback(message);
 
     doRead();
 }

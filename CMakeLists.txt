@@ -14,7 +14,7 @@ add_library(sclang_websocket SHARED
 
 # supercollider
 target_include_directories(sclang_websocket PUBLIC
-    ${SC_SRC_PATH}/include/lang
+    ${SC_SRC_PATH}/include/gluon_ffi_interface
 )
 
 # boost

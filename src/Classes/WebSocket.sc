@@ -1,85 +1,38 @@
+
 WebSocketClient {
 	var <host;
 	var <port;
-	var <beastConnectionPtr;
-	var <>connected = false; // do not modify! needs to be public so we can modify it via static method
-	var <>onMessage;
-	var <>onDisconnect;
+	// we identify resources of the ffi using uuids
+	var <uuid;
 
-	classvar <>globalConnections;
-	classvar <>ffi;
+	var <connected = false;
+	var <>onMessage;
+
+	classvar ffi;
 
 	*initClass {
-		globalConnections = ();
-
-		// do not load ffi yet...
-
-	}
-
-	*loadFFI {
-		ffi = FFILibrary.open(
-			pathToLibrary: "/Users/scheiba/Library/Application Support/SuperCollider/Extensions/sclang_websocket/sclang_websocket.gluon"
+		Class.initClassTree(Gluon);
+		ffi = Gluon.open(
+			pathToLibrary: PathName.new("".resolveRelative).parentPath +/+ "sclang_websocket.gluon",
 		);
 	}
 
 	*new {|host="127.0.0.1", port=8765|
-		^super.newCopyArgs(host, port);
+		var uuid = UniqueID.next;
+		ffi.clientInit(uuid, host, port);
+		^super.newCopyArgs(host, port, uuid).init;
 	}
 
-	*prReceivedMessage {|ptr, message|
-		var connection = globalConnections[ptr];
-		if(connection.notNil, {
-			connection.onMessage.value(message);
+	init {
+		ffi.clientMessageReceivedCallback(uuid, callback: {|message| this.prMessageReceived(message)});
+	}
+
+	connect {|onConnectionChange|
+		ffi.clientConnect(uuid, callback: {|connectionStatus|
+			"Connection status is now %".format(connectionStatus).postln;
+			connected = connectionStatus;
+			onConnectionChange.value(connectionStatus);
 		});
-	}
-
-	*prSetConnectionStatus {|ptr, connected|
-		var connection = globalConnections[ptr];
-		if(connection.notNil, {
-			if(connected, {
-				connection.connected = true;
-			}, {
-				connection.onDisconnect.value();
-				connection.connected = false;
-			});
-		});
-	}
-
-	connect {
-		this.prConnect();
-		globalConnections[beastConnectionPtr] = this;
-	}
-
-	*prConnected {|ptr|
-		var client = globalConnections[ptr];
-		if(client.notNil, {
-			client.connected = true;
-		});
-	}
-
-	prConnect {
-		// _WebSocketClient_Connect
-		// ^this.primitiveFailed;
-	}
-
-	close {
-		if(beastConnectionPtr.isNil, {
-			"Connection is not available - can not close.".warn;
-			^this;
-		});
-		if(connected.not, {
-			"Can only close an open connection".warn;
-			^this;
-		});
-
-		this.prClose();
-		connected = false;
-		globalConnections[beastConnectionPtr] = nil;
-	}
-
-	prClose {
-		// _WebSocketClient_Close
-		// ^this.primitiveFailed;
 	}
 
 	sendMessage {|message|
@@ -87,22 +40,21 @@ WebSocketClient {
 			"Can only send a message on an open connection".warn;
 			^this;
 		});
-		if(message.isKindOf(String), {
-			^this.prSendStringMessage(message);
-		});
-		if(message.isKindOf(Int8Array), {
-			^this.prSendRawMessage(message);
-		});
-		"Unknown datatype %".format(message.class).warn;
+		ffi.clientSendMessage(uuid, message.isKindOf(String), message);
 	}
 
-	prSendStringMessage {|message|
-		// _WebSocketClient_SendStringMessage
-		// ^this.primitiveFailed;
+	prMessageReceived {|message|
+		"Client has received a message %".format(message).postln;
+		onMessage.value(message);
 	}
 
-	prSendRawMessage {|message|
-		// _WebSocketClient_SendRawMessage
-	    // ^this.primitiveFailed;
+	close {
+		if(connected.not, {
+			"Can only close an open connection".warn;
+			^this;
+		});
+
+		ffi.clientCloseConnection(uuid);
+		connected = false;
 	}
 }

@@ -1,35 +1,21 @@
 #include <iostream>
 #include <thread>
 
-#include "sc_ffi_v1.h"
-#include "sc_ffi_version.h"
+#include "sc_gluon_v1_entry_points.h"
+#include "sc_gluon_v1_types.h"
 
-#include "ws_server.h"
 #include "ws_client.h"
 
 #define SC_WEBSOCKET_DEBUG 1
 
-// some things to make C++ side nicer
-using Declaration = sc_ffi_function_declarations_v1_t;
-using ReturnTag = sc_ffi_out_param_tag_v1;
-using LibraryData = sc_ffi_library_data_v1_t;
-using CallbackFunction = sc_ffi_do_callback_v1_f;
-using ReleaseCallbackObject = sc_ffi_release_callback_object_v1_f;
+static auto* gDeclarations = new std::vector<sc_gluon_function_declarations_v1_t>();
 
-// functions to implement
-extern "C" {
-uint32_t sc_ffi_version();
-LibraryData sc_ffi_load_library(CallbackFunction doCallbackFunction,
-                                sc_ffi_release_callback_object_v1_f releaseCallbackObject,
-                                Declaration** const outDeclarations, uint32_t* outSize);
-}
-static auto* gDeclarations = new std::vector<Declaration>();
-
-// actual code starts here code
 
 static std::thread gWsThread;
 boost::asio::io_context gIoContext;
 std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> gWorkGuard;
+
+static auto gClients = std::unordered_map<uint32_t, std::shared_ptr<WebSocketClient>> {};
 
 void setupIoContext() {
     gWorkGuard = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(
@@ -46,173 +32,253 @@ void setupIoContext() {
         std::cout << "IO context stopped" << std::endl;
 #endif
     });
-    // gWsThread.detach();
 }
 
-static auto gClients = std::vector<WebSocketClient*>();
+struct CallbackPointers {
+    sc_gluon_do_callback_v1_f doCallback;
+    sc_gluon_release_callback_object_v1_f releaseCallback;
+};
 
-ReturnTag webSocketClientConnect(sc_ffi_library_data_v1_t library_data, sc_ffi_callable_object_v1_t callbackObject,
-                                 sc_ffi_param_v1_t* inParams, uint32_t numInParams,
-                                 sc_ffi_out_param_or_maybe_diagnostic_v1* outParam) {
+sc_gluon_out_param_tag_v1 returnTrue(sc_gluon_out_param_or_maybe_diagnostic_v1* &outParam) {
+    outParam->out_param.tag = sc_gluon_bool;
+    outParam->out_param.data = {true};
+    outParam->out_param.owns_data = true;
+    outParam->out_param.size = 1;
 
-    if (numInParams<=2) {
+    return sc_gluon_produced_param;
+}
+
+sc_gluon_out_param_tag_v1 webSocketClientInit(
+    sc_gluon_library_data_v1_t libraryData,
+    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_param_v1_t* inParams,
+    uint32_t numInParams,
+    sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
+) {
+    if (numInParams != 3) {
         outParam->maybe_diagnostic = "Wrong number of arguments";
-        return sc_ffi_error_with_non_owned_diagnostic;
+        return sc_gluon_error_with_non_owned_diagnostic;
     }
 
-    std::cout << "WebSocketClientConnect" << std::endl;
+    auto uuid = inParams[0].data.i32;
+    auto host = std::string(inParams[1].data.character_array, inParams[1].size);
+    auto port = inParams[2].data.i32;
 
-    auto port = std::string("8765");
-    auto client = new WebSocketClient(gIoContext);
-    gClients.push_back(client);
-    client->run("127.0.0.1", port);
+    auto client = std::make_shared<WebSocketClient>(gIoContext, host, port);
+    gClients.insert(std::pair<uint32_t, std::shared_ptr<WebSocketClient>>(uuid, client));
 
-    outParam->out_param.tag = sc_ffi_bool;
-    outParam->out_param.owns_data = false;
-    outParam->out_param.size = 1;
-    outParam->out_param.data.boolean = true;
-
-    return sc_ffi_produced_param;
+    return returnTrue(outParam);
 }
 
+
+sc_gluon_out_param_tag_v1 webSocketClientConnect(
+    sc_gluon_library_data_v1_t libraryData,
+    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_param_v1_t* inParams,
+    uint32_t numInParams,
+    sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
+) {
+    if (numInParams != 1 || callbackObject == nullptr) {
+        outParam->maybe_diagnostic = "Wrong number of arguments or missing callback";
+        return sc_gluon_error_with_non_owned_diagnostic;
+    }
+
+    auto uuid = inParams[0].data.i32;
+    if (auto it = gClients.find(uuid); it != gClients.end()) {
+        auto client = it->second;
+        client->mSclangConnectionChangeCallback = [=](bool isConnected) {
+            auto const callbackPointers = static_cast<CallbackPointers*>(libraryData);
+            auto callbackData = sc_gluon_param_v1_t{
+                .data = {isConnected},
+                .size = 1,
+                .tag = sc_gluon_bool,
+                .owns_data = false,
+            };
+            callbackPointers->doCallback(callbackObject, &callbackData, 1);
+        };
+        client->connect();
+
+        return returnTrue(outParam);
+    } else {
+        outParam->maybe_diagnostic = "Provided client uuid does not exist";
+        return sc_gluon_error_with_non_owned_diagnostic;
+    }
+}
+
+sc_gluon_out_param_tag_v1 webSocketClientRegisterMessageCallback(
+    sc_gluon_library_data_v1_t libraryData,
+    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_param_v1_t* inParams,
+    uint32_t numInParams,
+    sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
+) {
+    if (numInParams != 1 || callbackObject == nullptr) {
+        outParam->maybe_diagnostic = "Wrong number of arguments or missing callback";
+        return sc_gluon_error_with_non_owned_diagnostic;
+    }
+
+    auto uuid = inParams[0].data.i32;
+    if (auto it = gClients.find(uuid); it != gClients.end()) {
+        auto client = it->second;
+        client->mSclangOnMessageCallback = [=](WebSocketData& message) {
+            auto const callbackPointers = static_cast<CallbackPointers*>(libraryData);
+
+            if (std::holds_alternative<std::string>(message)) {
+                auto stringMessage = std::get<std::string>(message);
+                auto callbackData = sc_gluon_param_v1_t{
+                    .data = { .character_array = stringMessage.data() },
+                    .size = static_cast<uint32_t>(stringMessage.size()),
+                    .tag = sc_gluon_char_array,
+                    .owns_data = false,
+                };
+                callbackPointers->doCallback(callbackObject, &callbackData, 1);
+            } else {
+                auto bitMessage = std::get<std::vector<uint8_t>>(message);
+                auto callbackData = sc_gluon_param_v1_t{
+                    .data = { .u8_array = bitMessage.data() },
+                    .size = static_cast<uint32_t>(bitMessage.size()),
+                    .tag = sc_gluon_u8_array,
+                    .owns_data = false,
+                };
+                callbackPointers->doCallback(callbackObject, &callbackData, 1);
+            }
+        };
+        return returnTrue(outParam);
+    } else {
+        outParam->maybe_diagnostic = "Provided client uuid does not exist";
+        return sc_gluon_error_with_non_owned_diagnostic;
+    }
+}
+
+sc_gluon_out_param_tag_v1 webSocketClientSendMessage(
+    sc_gluon_library_data_v1_t libraryData,
+    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_param_v1_t* inParams,
+    uint32_t numInParams,
+    sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
+) {
+    if (numInParams != 3) {
+        outParam->maybe_diagnostic = "Wrong number of arguments";
+        return sc_gluon_error_with_non_owned_diagnostic;
+    }
+
+    auto uuid = inParams[0].data.i32;
+    if (auto it = gClients.find(uuid); it != gClients.end()) {
+        auto client = it->second;
+
+        if (inParams[1].data.boolean) {
+            auto messageString = std::string(inParams[2].data.character_array, inParams[2].size);
+            auto message = WebSocketData{messageString};
+            client->enqueueMessage(message);
+        } else {
+            auto u8Data = std::vector<u_int8_t>(inParams[2].data.u8_array, inParams[2].data.u8_array + inParams[2].size);
+            auto message = WebSocketData{u8Data};
+            client->enqueueMessage(message);
+        }
+        return returnTrue(outParam);
+    } else {
+        outParam->maybe_diagnostic = "Provided client uuid does not exist";
+        return sc_gluon_error_with_non_owned_diagnostic;
+    }
+}
+
+sc_gluon_out_param_tag_v1 webSocketClientCloseConnection(
+    sc_gluon_library_data_v1_t libraryData,
+    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_param_v1_t* inParams,
+    uint32_t numInParams,
+    sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
+) {
+    if (numInParams != 1) {
+        outParam->maybe_diagnostic = "Wrong number of arguments";
+        return sc_gluon_error_with_non_owned_diagnostic;
+    }
+
+    auto uuid = inParams[0].data.i32;
+    if (auto it = gClients.find(uuid); it != gClients.end()) {
+        auto client = it->second;
+        client->closeConnection();
+    } else {
+        outParam->maybe_diagnostic = "Provided client uuid does not exist";
+        return sc_gluon_error_with_non_owned_diagnostic;
+    }
+
+    return returnTrue(outParam);
+}
+
+
 void setupDeclarations() {
-    gDeclarations->push_back(Declaration {
-        .name = "webSocketClientConnect",
+    // client declarations
+    gDeclarations->push_back(sc_gluon_function_declarations_v1_t {
+        .name = "clientInit",
+        .ptr=webSocketClientInit,
+        .num_parms = 3,  // uuid, host, port
+        .accepts_callback = false,
+    });
+
+    gDeclarations->push_back(sc_gluon_function_declarations_v1_t {
+        .name = "clientConnect",
         .ptr = webSocketClientConnect,
-        .num_parms = 0,
+        .num_parms = 1, // uuid
+        .accepts_callback = true,
+    });
+
+    gDeclarations->push_back(sc_gluon_function_declarations_v1_t {
+        .name = "clientMessageReceivedCallback",
+        .ptr = webSocketClientRegisterMessageCallback,
+        .num_parms = 1, // uuid
+        .accepts_callback = true,
+    });
+
+    gDeclarations->push_back(sc_gluon_function_declarations_v1_t {
+        .name = "clientSendMessage",
+        .ptr = webSocketClientSendMessage,
+        .num_parms = 3, // uuid, string/uint8 bool, data
+        .accepts_callback = false,
+    });
+
+    gDeclarations->push_back(sc_gluon_function_declarations_v1_t {
+        .name = "clientCloseConnection",
+        .ptr = webSocketClientCloseConnection,
+        .num_parms = 1, // uuid
         .accepts_callback = false,
     });
 }
 
-sc_ffi_out_param_tag_v1 foo(sc_ffi_library_data_v1_t library_data, sc_ffi_callable_object_v1_t maybe_callback_data,
-                            sc_ffi_param_v1_t* in_params, uint32_t num_in_params,
-                            sc_ffi_out_param_or_maybe_diagnostic_v1* out_param) {
-    std::cout << "HELLO" << std::endl;
-
-    if (num_in_params != 2) {
-        out_param->maybe_diagnostic = "wrong number of in params";
-        return sc_ffi_error_with_non_owned_diagnostic;
-    }
-
-    const sc_ffi_param_v1_t& p1 = in_params[0];
-    const sc_ffi_param_v1_t& p2 = in_params[1];
-
-    if (p1.tag != sc_ffi_f64) {
-        out_param->maybe_diagnostic = "param 1 is not an f64";
-        return sc_ffi_error_with_non_owned_diagnostic;
-    }
-
-    if (p2.tag != sc_ffi_f64) {
-        out_param->maybe_diagnostic = "param 2 is not an f64";
-        return sc_ffi_error_with_non_owned_diagnostic;
-    }
-
-    const auto r = p1.data.f64 + p2.data.f64;
-
-    out_param->out_param.data.f64 = r;
-    out_param->out_param.tag = sc_ffi_f64;
-    out_param->out_param.owns_data = false;
-    out_param->out_param.size = 1;
-
-    return sc_ffi_produced_param;
-}
-
-struct CallbackPointers {
-    sc_ffi_do_callback_v1_f do_callback;
-    sc_ffi_release_callback_object_v1_f release_callback;
-};
-
-
-sc_ffi_out_param_tag_v1 helloWebSocket(sc_ffi_library_data_v1_t library_data,
-                                       sc_ffi_callable_object_v1_t maybe_callback_data,
-                                       struct sc_ffi_param_v1_t* in_params, uint32_t num_in_params,
-                                       union sc_ffi_out_param_or_maybe_diagnostic_v1* out_param) {
-    std::cout << "HELLO WEBSOCKET <3" << std::endl;
-
-    auto library = reinterpret_cast<CallbackPointers*>(library_data);
-    // = captures automatically into thread context
-    std::thread([=]() {
-        std::cout << "WebSocket is going to sleep now" << std::endl;
-        std::this_thread::sleep_for(std::chrono::duration<double>(2.0));
-        std::cout << "WebSocket slept enough" << std::endl;
-        if (maybe_callback_data != nullptr) {
-            // (sc_ffi_callable_object_v1_t, struct sc_ffi_param_v1_t* params, uint32_t num_params
-            library->do_callback(maybe_callback_data, nullptr, 0);
-            library->release_callback(maybe_callback_data);
-        } else {
-            std::cout << "Hey - you forgot me to pass the callback data :(" << std::endl;
-        }
-    }).detach();
-
-    out_param->out_param.tag = sc_ffi_nil;
-    out_param->out_param.owns_data = false;
-    out_param->out_param.size = 1;
-    out_param->out_param.data.nil_ = {};
-
-    return sc_ffi_produced_param;
-}
-
-// stores our declarations we want to expose to sclang
-// sc_ffi_function_declarations_v1_t gDeclarations[2];
-
-// the actual C-function we want to expose
-sc_ffi_out_param_tag_v1
-helloWorld(sc_ffi_library_data_v1_t libraryData, // use this to pass along a state into the function
-           sc_ffi_callable_object_v1_t maybeCallbackData, sc_ffi_param_v1_t* inParameters, uint32_t numInParameters,
-           sc_ffi_out_param_or_maybe_diagnostic_v1* outParam // the data that we return to sclang
-) {
-    std::cout << "HELLO WORLD <3" << std::endl;
-
-    // we are running inside the sclang vm here, so no blocking operations
-    // but you can spawn a thread and use the callback functionality :)
-
-    outParam->out_param.tag = sc_ffi_nil; // choose appropriate type from enum
-    outParam->out_param.owns_data = false;
-    outParam->out_param.size = 1;
-    outParam->out_param.data.nil_ = {}; // this is how we represent nil
-
-    return sc_ffi_produced_param; // choose enum to tell the language if the op succeeded or not
-}
-
-
-// since we want to expose the functions we need to use the C context
 extern "C" {
 
-// this function needs to be implemented
-uint32_t sc_ffi_version() { return 1; }
+uint32_t sc_gluon_version() {return 1;}
 
-// the sc_ffi_load_library function we need to implement
-LibraryData sc_ffi_load_library(CallbackFunction doCallbackFunction,
-                                sc_ffi_release_callback_object_v1_f releaseCallbackObject,
-                                Declaration** const outDeclarations, uint32_t* outSize) {
+sc_gluon_library_data_v1_t sc_gluon_load_library(sc_gluon_do_callback_v1_f doCallbackFunction,
+                                sc_gluon_release_callback_object_v1_f releaseCallbackObject,
+                                sc_gluon_function_declarations_v1_t** const outDeclarations, uint32_t* outSize) {
     setupDeclarations();
     setupIoContext();
 
-    // attach the declarations to our local copy
     *outDeclarations = &gDeclarations->front();
     *outSize = gDeclarations->size();
 
-    // specify the first declaration
-    // sc_ffi_function_declarations_v1_t& declaration = gDeclarations[0];
-    // declaration.accepts_callback = false; // simple for now
-    // declaration.name = "helloWorld"; // name of the function that will be exposed on sclang side
-    // declaration.num_parms = 0; // number of parameters our function will consume
-    // declaration.ptr = helloWorld; // pointer to our c function
-
-    std::cout << "FFI loaded our lib" << std::endl;
-
-    // return type is actually of type sc_ffi_library_data_v1_t
-    // return new CallbackPointers{
-    //     .do_callback = doCallbackFunction,
-    //     .release_callback = releaseCallbackObject,
-    // };
-    return nullptr;
+    return new CallbackPointers{
+        .doCallback = doCallbackFunction,
+        .releaseCallback = releaseCallbackObject,
+    };
 }
 
-void sc_ffi_unload_library(sc_ffi_library_data_v1_t data) {
-    // keep this reinterpret_cast instead of static_cast for now
-    auto foo = reinterpret_cast<CallbackPointers*>(data);
-    // the c++ equivalent of delete
-    std::destroy_at(&foo);
+void sc_gluon_unload_library(sc_gluon_library_data_v1_t data) {
+    std::cout << "sc_gluon_unload_library" << std::endl;
+
+    auto callbackPointers = reinterpret_cast<CallbackPointers*>(data);
+    std::destroy_at(&callbackPointers);
+
+    if (gWorkGuard) {
+        gWorkGuard->reset();
+        gWorkGuard.reset();
+    }
+
+    gIoContext.stop();
+    if (gWsThread.joinable()) {
+        gWsThread.join();
+    }
+    gIoContext.reset();
 }
 }
