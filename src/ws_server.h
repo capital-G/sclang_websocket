@@ -7,6 +7,8 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/ip/tcp.hpp>
 
+#include "ws_common.h"
+
 namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
 
@@ -14,11 +16,6 @@ using tcp = boost::asio::ip::tcp;
 // communication with primitives is handeled in `SC_WebSocketPrim`.
 // See boost beast documentation for `do_read` -> `on_read` worklflow.
 namespace SC_Websocket {
-
-// a websocket message can either be a byte array or a string
-// see https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/message_event
-using WebSocketData = std::variant<std::vector<uint8_t>, std::string>;
-
 
 /** A wrapper class for the websocket communication thread.
 This gets initiated into a static variable upon request.
@@ -56,7 +53,7 @@ class WebSocketSession : public std::enable_shared_from_this<WebSocketSession> {
     beast::websocket::stream<tcp::socket> mWs;
     beast::flat_buffer mBuffer;
     std::queue<WebSocketData> mOutQueue;
-    // a primitive mutex - see `do_write` and `on_write`
+    // a primitive mutex - see `do_write` and `on_write` - @todo use atomic in this case?
     bool mIsWriting = false;
     int mListeningPort;
 
@@ -112,45 +109,5 @@ private:
     void doAccept();
 
     void onAccept(beast::error_code ec, boost::asio::ip::tcp::socket socket);
-};
-
-class WebSocketClient : public std::enable_shared_from_this<WebSocketClient> {
-    beast::websocket::stream<beast::tcp_stream> mWs;
-    boost::asio::ip::tcp::resolver mResolver;
-    beast::flat_buffer mBuffer;
-    std::string mHost;
-    bool mConnected = false;
-    bool mIsWriting = false;
-    std::queue<WebSocketData> mOutQueue;
-
-public:
-    // access to self - acts as identifier for sclang callbacks
-    WebSocketClient* mSelf;
-
-    WebSocketClient(boost::asio::io_context& ioContext);
-
-    // why is port a string?!
-    void run(const std::string& host_, std::string& port);
-
-    beast::error_code closeConnection();
-
-    void enqueueMessage(WebSocketData& message);
-
-private:
-    void onResolve(beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results);
-
-    void onConnect(beast::error_code ec, boost::asio::ip::tcp::resolver::results_type::endpoint_type endpoint);
-
-    void onHandshake(beast::error_code ec);
-
-    void doRead();
-
-    void onRead(beast::error_code ec, std::size_t bytesTransferred);
-
-    void onClose() { mConnected = false; }
-
-    void doWrite();
-
-    void onWrite(beast::error_code ec, std::size_t bytesTransferred);
 };
 }
