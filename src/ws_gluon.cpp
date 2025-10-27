@@ -10,33 +10,17 @@
 
 static auto* gDeclarations = new std::vector<sc_gluon_function_declarations_v1_t>();
 
-
-static std::thread gWsThread;
-boost::asio::io_context gIoContext;
-std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> gWorkGuard;
-
-static auto gClients = std::unordered_map<uint32_t, std::shared_ptr<WebSocketClient>> {};
-
-void setupIoContext() {
-    gWorkGuard = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(
-        boost::asio::make_work_guard(gIoContext)
-    );
-
-    gWsThread = std::thread([]() {
-#ifdef SC_WEBSOCKET_DEBUG
-        std::cout << "Start WebSocket thread" << std::endl;
-#endif
-
-        gIoContext.run();
-#ifdef SC_WEBSOCKET_DEBUG
-        std::cout << "IO context stopped" << std::endl;
-#endif
-    });
-}
-
-struct CallbackPointers {
+// an instance of this gets passed into the ffi functions by gluon
+struct WebSocketState {
+    // gluon defined
     sc_gluon_do_callback_v1_f doCallback;
     sc_gluon_release_callback_object_v1_f releaseCallback;
+
+    // ws state
+    std::thread thread;
+    boost::asio::io_context ioContext;
+    std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> workGuard;
+    std::unordered_map<uint32_t, std::shared_ptr<WebSocketClient>> clients;
 };
 
 sc_gluon_out_param_tag_v1 returnTrue(sc_gluon_out_param_or_maybe_diagnostic_v1* &outParam) {
@@ -59,13 +43,14 @@ sc_gluon_out_param_tag_v1 webSocketClientInit(
         outParam->maybe_diagnostic = "Wrong number of arguments";
         return sc_gluon_error_with_non_owned_diagnostic;
     }
+    auto const state = static_cast<WebSocketState*>(libraryData);
 
     auto uuid = inParams[0].data.i32;
     auto host = std::string(inParams[1].data.character_array, inParams[1].size);
     auto port = inParams[2].data.i32;
 
-    auto client = std::make_shared<WebSocketClient>(gIoContext, host, port);
-    gClients.insert(std::pair<uint32_t, std::shared_ptr<WebSocketClient>>(uuid, client));
+    auto client = std::make_shared<WebSocketClient>(state->ioContext, host, port);
+    state->clients.insert(std::pair<uint32_t, std::shared_ptr<WebSocketClient>>(uuid, client));
 
     return returnTrue(outParam);
 }
@@ -83,18 +68,19 @@ sc_gluon_out_param_tag_v1 webSocketClientConnect(
         return sc_gluon_error_with_non_owned_diagnostic;
     }
 
+    auto const state = static_cast<WebSocketState*>(libraryData);
+
     auto uuid = inParams[0].data.i32;
-    if (auto it = gClients.find(uuid); it != gClients.end()) {
+    if (auto it = state->clients.find(uuid); it != state->clients.end()) {
         auto client = it->second;
         client->mSclangConnectionChangeCallback = [=](bool isConnected) {
-            auto const callbackPointers = static_cast<CallbackPointers*>(libraryData);
             auto callbackData = sc_gluon_param_v1_t{
                 .data = {isConnected},
                 .size = 1,
                 .tag = sc_gluon_bool,
                 .owns_data = false,
             };
-            callbackPointers->doCallback(callbackObject, &callbackData, 1);
+            state->doCallback(callbackObject, &callbackData, 1);
         };
         client->connect();
 
@@ -116,12 +102,12 @@ sc_gluon_out_param_tag_v1 webSocketClientRegisterMessageCallback(
         outParam->maybe_diagnostic = "Wrong number of arguments or missing callback";
         return sc_gluon_error_with_non_owned_diagnostic;
     }
+    auto const state = static_cast<WebSocketState*>(libraryData);
 
     auto uuid = inParams[0].data.i32;
-    if (auto it = gClients.find(uuid); it != gClients.end()) {
+    if (auto it = state->clients.find(uuid); it != state->clients.end()) {
         auto client = it->second;
         client->mSclangOnMessageCallback = [=](WebSocketData& message) {
-            auto const callbackPointers = static_cast<CallbackPointers*>(libraryData);
 
             if (std::holds_alternative<std::string>(message)) {
                 auto stringMessage = std::get<std::string>(message);
@@ -131,7 +117,7 @@ sc_gluon_out_param_tag_v1 webSocketClientRegisterMessageCallback(
                     .tag = sc_gluon_char_array,
                     .owns_data = false,
                 };
-                callbackPointers->doCallback(callbackObject, &callbackData, 1);
+                state->doCallback(callbackObject, &callbackData, 1);
             } else {
                 auto bitMessage = std::get<std::vector<uint8_t>>(message);
                 auto callbackData = sc_gluon_param_v1_t{
@@ -140,7 +126,7 @@ sc_gluon_out_param_tag_v1 webSocketClientRegisterMessageCallback(
                     .tag = sc_gluon_u8_array,
                     .owns_data = false,
                 };
-                callbackPointers->doCallback(callbackObject, &callbackData, 1);
+                state->doCallback(callbackObject, &callbackData, 1);
             }
         };
         return returnTrue(outParam);
@@ -161,9 +147,10 @@ sc_gluon_out_param_tag_v1 webSocketClientSendMessage(
         outParam->maybe_diagnostic = "Wrong number of arguments";
         return sc_gluon_error_with_non_owned_diagnostic;
     }
+    auto const state = static_cast<WebSocketState*>(libraryData);
 
     auto uuid = inParams[0].data.i32;
-    if (auto it = gClients.find(uuid); it != gClients.end()) {
+    if (auto it = state->clients.find(uuid); it != state->clients.end()) {
         auto client = it->second;
 
         if (inParams[1].data.boolean) {
@@ -194,8 +181,10 @@ sc_gluon_out_param_tag_v1 webSocketClientCloseConnection(
         return sc_gluon_error_with_non_owned_diagnostic;
     }
 
+    auto const state = static_cast<WebSocketState*>(libraryData);
+
     auto uuid = inParams[0].data.i32;
-    if (auto it = gClients.find(uuid); it != gClients.end()) {
+    if (auto it = state->clients.find(uuid); it != state->clients.end()) {
         auto client = it->second;
         client->closeConnection();
     } else {
@@ -245,40 +234,63 @@ void setupDeclarations() {
     });
 }
 
+void setupIoContext(WebSocketState* state) {
+    state->workGuard = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(
+        boost::asio::make_work_guard(state->ioContext)
+    );
+
+    state->thread = std::thread([=]() {
+#ifdef SC_WEBSOCKET_DEBUG
+        std::cout << "Start WebSocket thread" << std::endl;
+#endif
+
+        state->ioContext.run();
+#ifdef SC_WEBSOCKET_DEBUG
+        std::cout << "IO context stopped" << std::endl;
+#endif
+    });
+}
+
 extern "C" {
 
 uint32_t sc_gluon_version() {return 1;}
 
-sc_gluon_library_data_v1_t sc_gluon_load_library(sc_gluon_do_callback_v1_f doCallbackFunction,
-                                sc_gluon_release_callback_object_v1_f releaseCallbackObject,
-                                sc_gluon_function_declarations_v1_t** const outDeclarations, uint32_t* outSize) {
+sc_gluon_library_data_v1_t sc_gluon_load_library(
+    sc_gluon_do_callback_v1_f doCallbackFunction,
+    sc_gluon_release_callback_object_v1_f releaseCallbackObject,
+    sc_gluon_function_declarations_v1_t** const outDeclarations,
+    uint32_t* outSize
+) {
     setupDeclarations();
-    setupIoContext();
+
+    auto state = new WebSocketState{
+        .doCallback = doCallbackFunction,
+        .releaseCallback = releaseCallbackObject,
+    };
+    setupIoContext(state);
 
     *outDeclarations = &gDeclarations->front();
     *outSize = gDeclarations->size();
 
-    return new CallbackPointers{
-        .doCallback = doCallbackFunction,
-        .releaseCallback = releaseCallbackObject,
-    };
+    return state;
 }
 
 void sc_gluon_unload_library(sc_gluon_library_data_v1_t data) {
     std::cout << "sc_gluon_unload_library" << std::endl;
 
-    auto callbackPointers = reinterpret_cast<CallbackPointers*>(data);
-    std::destroy_at(&callbackPointers);
+    auto state = reinterpret_cast<WebSocketState*>(data);
 
-    if (gWorkGuard) {
-        gWorkGuard->reset();
-        gWorkGuard.reset();
+    if (state->workGuard) {
+        state->workGuard->reset();
+        state->workGuard.reset();
     }
 
-    gIoContext.stop();
-    if (gWsThread.joinable()) {
-        gWsThread.join();
+    state->ioContext.stop();
+    if (state->thread.joinable()) {
+        state->thread.join();
     }
-    gIoContext.reset();
+    state->ioContext.reset();
+
+    std::destroy_at(&state);
 }
 }
