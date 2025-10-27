@@ -6,7 +6,6 @@
 #include <iostream>
 
 
-
 namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
 
@@ -116,7 +115,7 @@ void WebSocketClient::doWrite() {
         auto message = mOutQueue.front();
 
         mWs.text(std::holds_alternative<std::string>(message));
-        mWs.async_write(boost::asio::buffer(SC_Websocket::WebSocketSession::toAsioBuffer(message)),
+        mWs.async_write(boost::asio::buffer(WebSocketSession::toAsioBuffer(message)),
                         beast::bind_front_handler(&WebSocketClient::onWrite, shared_from_this()));
     }
 }

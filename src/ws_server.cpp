@@ -14,46 +14,14 @@
 namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
 
+static std::atomic<int32_t> gSessionCounter = 0;
 
-namespace SC_Websocket {
 
-std::shared_ptr<WebSocketThread> WebSocketThread::getInstance() {
-    static std::shared_ptr<WebSocketThread> instance_ = std::make_shared<WebSocketThread>();
-    return instance_;
-}
-
-boost::asio::io_context& WebSocketThread::getContext() { return mIoContext; }
-
-void WebSocketThread::start() {
-    if (!mThread) {
-#ifdef SC_WEBSOCKET_DEBUG
-        std::cout << "Start websocket thread" << std::endl;
-#endif
-        mThread = std::make_shared<std::thread>([this]() {
-            auto work = boost::asio::make_work_guard(mIoContext);
-            mIoContext.run();
-        });
-    }
-}
-
-void WebSocketThread::stop() {
-    mIoContext.stop();
-    if (mThread && mThread->joinable()) {
-        mThread->join();
-    }
-    mThread.reset();
-}
-
-WebSocketThread::~WebSocketThread() {
-    std::cout << "Clean websocket thread" << std::endl;
-    stop();
-}
-
-WebSocketThread::WebSocketThread() {}
-
-WebSocketSession::WebSocketSession(boost::asio::ip::tcp::socket&& socket, int listeningPort):
+WebSocketSession::WebSocketSession(boost::asio::ip::tcp::socket&& socket, int listeningPort, int sessionId):
     mWs(std::move(socket)),
-    mListeningPort(listeningPort) {}
+    mListeningPort(listeningPort),
+    mSessionId(sessionId)
+{}
 
 void WebSocketSession::run() {
 #ifdef SC_WEBSOCKET_DEBUG
@@ -70,7 +38,12 @@ void WebSocketSession::enqueueMessage(WebSocketData message) {
     });
 }
 
-void WebSocketSession::close() { mWs.close("Goodbye"); }
+void WebSocketSession::close() {
+    mWs.close("Goodbye");
+    if (mConnectionStateCallback) {
+        mConnectionStateCallback(false);
+    };
+}
 
 boost::asio::const_buffer WebSocketSession::toAsioBuffer(const WebSocketData& message) {
     return std::visit([](const auto& arg) { return boost::asio::buffer(arg); }, message);
@@ -96,7 +69,9 @@ void WebSocketSession::onAccept(beast::error_code ec) {
     std::cout << "Session accepted" << std::endl;
 #endif
 
-    // SC_Websocket_Lang::WebSocketConnection::newLangConnection(m_ownAddress, m_listeningPort);
+    if (mConnectionStateCallback) {
+        mConnectionStateCallback(true);
+    }
     doRead();
 }
 
@@ -111,6 +86,7 @@ void WebSocketSession::onRead(beast::error_code ec, std::size_t bytesTransferred
 #ifdef SC_WEBSOCKET_DEBUG
             std::cout << "Session closed" << std::endl;
 #endif
+            mConnectionStateCallback(false);
         } else {
             std::cout << "Websocket connection error: " << ec.message().c_str() << std::endl;
         };
@@ -118,7 +94,9 @@ void WebSocketSession::onRead(beast::error_code ec, std::size_t bytesTransferred
         return;
     }
     auto message = convertData(mBuffer, bytesTransferred, mWs.got_text());
-    // SC_Websocket_Lang::WebSocketConnection::receiveLangMessage(m_ownAddress, message);
+    if (mMessageReceivedCallback) {
+        mMessageReceivedCallback(message);
+    }
     // continue async loop to await websocket message
     doRead();
 }
@@ -146,12 +124,17 @@ void WebSocketSession::onWrite(beast::error_code ec, std::size_t bytesTransferre
     doWrite();
 }
 
-WebSocketListener::WebSocketListener(const std::shared_ptr<WebSocketThread>& webSocketThread,
-                                     boost::asio::ip::tcp::endpoint endpoint, boost::beast::error_code& ec):
-    mIoContext(webSocketThread->getContext()),
-    mAcceptor(webSocketThread->getContext()),
-    mThread(webSocketThread) {
-    mAcceptor.open(endpoint.protocol(), ec);
+WebSocketListener::WebSocketListener(
+    boost::asio::io_context& ioContext,
+    std::string& host,
+    int port,
+    beast::error_code& ec
+):
+    mIoContext(ioContext),
+    mAcceptor(ioContext),
+    mEndpoint(boost::asio::ip::address::from_string(host), port)
+{
+    mAcceptor.open(mEndpoint.protocol(), ec);
     if (ec) {
 #ifdef SC_WEBSOCKET_DEBUG
         std::cout << "Could not open endpoint - " << ec.message().c_str() << std::endl;
@@ -167,7 +150,7 @@ WebSocketListener::WebSocketListener(const std::shared_ptr<WebSocketThread>& web
         return;
     }
 
-    mAcceptor.bind(endpoint, ec);
+    mAcceptor.bind(mEndpoint, ec);
     if (ec) {
 #ifdef SC_WEBSOCKET_DEBUG
         std::cout << "Could not bind to endpoint: " << ec.message().c_str() << std::endl;
@@ -218,9 +201,16 @@ void WebSocketListener::onAccept(beast::error_code ec, boost::asio::ip::tcp::soc
 #ifdef SC_WEBSOCKET_DEBUG
     std::cout << "accepted connection" << std::endl;
 #endif
-    auto session = std::make_shared<WebSocketSession>(std::move(socket), mAcceptor.local_endpoint().port());
+    auto session = std::make_shared<WebSocketSession>(
+        std::move(socket),
+        mAcceptor.local_endpoint().port(),
+        gSessionCounter++
+    );
+
+    if (mNewSessionCallback) {
+        mNewSessionCallback(session);
+    }
     // session->m_ownAddress = session.get();
     session->run();
     doAccept();
-}
 }
