@@ -27,7 +27,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: "JordanHendersonMusic/supercollider"
-        ref: "ffi"
+        ref: "topic/ffi"
         path: "supercollider"
     - name: Build Plugin
       shell: bash
