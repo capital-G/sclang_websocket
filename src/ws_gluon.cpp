@@ -37,7 +37,7 @@ sc_gluon_out_param_tag_v1 returnTrue(sc_gluon_out_param_or_maybe_diagnostic_v1* 
 
 sc_gluon_out_param_tag_v1 webSocketClientInit(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -61,7 +61,7 @@ sc_gluon_out_param_tag_v1 webSocketClientInit(
 
 sc_gluon_out_param_tag_v1 webSocketClientConnect(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -96,7 +96,7 @@ sc_gluon_out_param_tag_v1 webSocketClientConnect(
 
 sc_gluon_out_param_tag_v1 webSocketClientRegisterMessageCallback(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -141,7 +141,7 @@ sc_gluon_out_param_tag_v1 webSocketClientRegisterMessageCallback(
 
 sc_gluon_out_param_tag_v1 webSocketClientSendMessage(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -174,7 +174,7 @@ sc_gluon_out_param_tag_v1 webSocketClientSendMessage(
 
 sc_gluon_out_param_tag_v1 webSocketClientCloseConnection(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -202,7 +202,7 @@ sc_gluon_out_param_tag_v1 webSocketClientCloseConnection(
 
 sc_gluon_out_param_tag_v1 webSocketListenerInit(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -237,7 +237,7 @@ sc_gluon_out_param_tag_v1 webSocketListenerInit(
 
 sc_gluon_out_param_tag_v1 webSocketListenerStartStop(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -270,7 +270,7 @@ sc_gluon_out_param_tag_v1 webSocketListenerStartStop(
 
 sc_gluon_out_param_tag_v1 webSocketListenerNewConnectionCallback(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -307,7 +307,7 @@ sc_gluon_out_param_tag_v1 webSocketListenerNewConnectionCallback(
 
 sc_gluon_out_param_tag_v1 webSocketSessionSendMessage(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -342,7 +342,7 @@ sc_gluon_out_param_tag_v1 webSocketSessionSendMessage(
 
 sc_gluon_out_param_tag_v1 webSocketSessionConnectionStateCallback(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -378,7 +378,7 @@ sc_gluon_out_param_tag_v1 webSocketSessionConnectionStateCallback(
 
 sc_gluon_out_param_tag_v1 webSocketSessionMessageCallback(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -426,7 +426,7 @@ sc_gluon_out_param_tag_v1 webSocketSessionMessageCallback(
 
 sc_gluon_out_param_tag_v1 webSocketSessionClose(
     sc_gluon_library_data_v1_t libraryData,
-    sc_gluon_callable_object_v1_t callbackObject,
+    sc_gluon_callback_object_v1_t callbackObject,
     sc_gluon_param_v1_t* inParams,
     uint32_t numInParams,
     sc_gluon_out_param_or_maybe_diagnostic_v1* outParam
@@ -563,24 +563,27 @@ extern "C" {
 
 uint32_t sc_gluon_version() {return 1;}
 
-sc_gluon_library_data_v1_t sc_gluon_load_library(
-    sc_gluon_do_callback_v1_f doCallbackFunction,
-    sc_gluon_release_callback_object_v1_f releaseCallbackObject,
-    sc_gluon_function_declarations_v1_t** const outDeclarations,
-    uint32_t* outSize
-) {
+uint8_t sc_gluon_load_library(
+    sc_gluon_param_v1_t* in_params,
+    uint32_t num_in_params,
+    sc_gluon_do_callback_v1_f do_callback,
+    sc_gluon_release_callback_object_v1_f release_callback,
+    sc_gluon_function_declarations_v1_t** const out_decls,
+    uint32_t* out_decls_size,
+    sc_gluon_library_data_v1_t* out_library_data)
+{
     setupDeclarations();
 
     auto state = new WebSocketState{
-        .doCallback = doCallbackFunction,
-        .releaseCallback = releaseCallbackObject,
+        .doCallback = do_callback,
+        .releaseCallback = release_callback,
     };
     setupIoContext(state);
 
-    *outDeclarations = &gDeclarations->front();
-    *outSize = gDeclarations->size();
+    *out_decls = &gDeclarations->front();
+    *out_decls_size = gDeclarations->size();
 
-    return state;
+    return 0;
 }
 
 void sc_gluon_unload_library(sc_gluon_library_data_v1_t data) {
